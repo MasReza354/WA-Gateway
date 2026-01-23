@@ -1,0 +1,550 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Kirim Pesan</h1>
+            <p class="text-sm text-slate-500">Kirim berbagai jenis pesan WhatsApp</p>
+        </div>
+    </div>
+
+    <!-- Message Type Cards -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Send Text -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-blue-100">
+                        <span class="material-symbols-outlined text-blue-600">chat</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Teks</h3>
+                        <p class="text-xs text-slate-500">Pesan teks sederhana</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendText()" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">send</span>
+                    Kirim Teks
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Media -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-purple-100">
+                        <span class="material-symbols-outlined text-purple-600">image</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Media</h3>
+                        <p class="text-xs text-slate-500">Gambar, video, dokumen</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendMedia()" class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">attach_file</span>
+                    Kirim Media
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Location -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-red-100">
+                        <span class="material-symbols-outlined text-red-600">location_on</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Lokasi</h3>
+                        <p class="text-xs text-slate-500">Koordinat GPS</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendLocation()" class="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">pin_drop</span>
+                    Kirim Lokasi
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Contact -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-green-100">
+                        <span class="material-symbols-outlined text-green-600">contact_page</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Kontak</h3>
+                        <p class="text-xs text-slate-500">Kartu kontak</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendContact()" class="w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">person_add</span>
+                    Kirim Kontak
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Sticker -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-yellow-100">
+                        <span class="material-symbols-outlined text-yellow-600">emoji_emotions</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Sticker</h3>
+                        <p class="text-xs text-slate-500">Sticker custom</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendSticker()" class="w-full py-2.5 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">add_reaction</span>
+                    Kirim Sticker
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Button - Disabled -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden opacity-50">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-slate-100">
+                        <span class="material-symbols-outlined text-slate-400">smart_button</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-500">Kirim Button [BLACKLIST]</h3>
+                        <p class="text-xs text-slate-400">Tidak didukung WhatsApp</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button disabled class="w-full py-2.5 px-4 bg-slate-300 text-slate-500 rounded-lg font-medium text-sm cursor-not-allowed flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">block</span>
+                    Tidak Tersedia
+                </button>
+            </div>
+        </div>
+
+        <!-- Send Bulk -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-teal-100">
+                        <span class="material-symbols-outlined text-teal-600">groups</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim Massal</h3>
+                        <p class="text-xs text-slate-500">Broadcast ke banyak nomor</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendBulk()" class="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">campaign</span>
+                    Kirim Massal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Templates -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+                <span class="material-symbols-outlined text-amber-600">bolt</span>
+                Template Cepat
+            </h3>
+        </div>
+        <div class="p-4 grid md:grid-cols-3 gap-3">
+            <button onclick="useTemplate('Halo, ada yang bisa dibantu?')" class="p-3 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors">
+                <p class="text-sm font-medium text-slate-700">Salam Pembuka</p>
+                <p class="text-xs text-slate-500 mt-1 truncate">Halo, ada yang bisa dibantu?</p>
+            </button>
+            <button onclick="useTemplate('Terima kasih sudah menghubungi kami. Pesan Anda akan segera diproses.')" class="p-3 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors">
+                <p class="text-sm font-medium text-slate-700">Auto Response</p>
+                <p class="text-xs text-slate-500 mt-1 truncate">Terima kasih sudah menghubungi...</p>
+            </button>
+            <button onclick="useTemplate('Mohon maaf, saat ini kami sedang tidak tersedia. Silakan tinggalkan pesan.')" class="p-3 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors">
+                <p class="text-sm font-medium text-slate-700">Away Message</p>
+                <p class="text-xs text-slate-500 mt-1 truncate">Mohon maaf, saat ini kami...</p>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSection(id) {
+    document.getElementById(id).classList.toggle('hidden');
+}
+
+function useTemplate(text) {
+    alertSendText(text);
+}
+
+async function alertSendText(prefillMessage = '') {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-blue-600 align-middle">chat</span> Kirim Teks',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %> (+<%= el.session_number %>)</option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan</label>
+                    <input id="swal-target" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628123456789">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan</label>
+                    <textarea id="swal-message" rows="3" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Tulis pesan...">${prefillMessage}</textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        preConfirm: () => {
+            return {
+                sessions: document.getElementById('swal-session').value,
+                target: document.getElementById('swal-target').value,
+                message: document.getElementById('swal-message').value
+            }
+        }
+    });
+
+    if (formValues) {
+        const res = await fetch('/api/sendtext', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formValues)
+        }).then(r => r.json());
+        
+        if (res.status == 200) {
+            Swal.fire('Berhasil!', res.message, 'success');
+        } else {
+            Swal.fire('Gagal', res.message, 'error');
+        }
+    }
+}
+
+async function alertSendMedia() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-purple-600 align-middle">image</span> Kirim Media',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan</label>
+                    <input id="swal-target" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628123456789">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">File</label>
+                    <input id="swal-file" type="file" class="w-full text-sm">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Atau URL</label>
+                    <input id="swal-url" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="https://...">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Caption</label>
+                    <textarea id="swal-message" rows="2" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Caption (opsional)"></textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#9333ea',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        preConfirm: () => {
+            const file = document.getElementById('swal-file').files[0];
+            return { file, sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, url: document.getElementById('swal-url').value, message: document.getElementById('swal-message').value };
+        }
+    });
+
+    if (formValues) {
+        let body, headers = {};
+        if (formValues.file) {
+            body = new FormData();
+            body.append('file', formValues.file);
+            body.append('sessions', formValues.sessions);
+            body.append('target', formValues.target);
+            body.append('message', formValues.message);
+        } else {
+            headers = { 'Content-Type': 'application/json' };
+            body = JSON.stringify(formValues);
+        }
+        
+        const res = await fetch('/api/sendmedia', { method: 'POST', headers, body }).then(r => r.json());
+        if (res.status == 200) Swal.fire('Berhasil!', res.message, 'success');
+        else Swal.fire('Gagal', res.message, 'error');
+    }
+}
+
+async function alertSendLocation() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-red-600 align-middle">location_on</span> Kirim Lokasi',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan</label>
+                    <input id="swal-target" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628123456789">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Latitude</label>
+                    <input id="swal-lat" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="-6.200000">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Longitude</label>
+                    <input id="swal-long" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="106.816666">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({ sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, lat: document.getElementById('swal-lat').value, long: document.getElementById('swal-long').value })
+    });
+
+    if (formValues) {
+        const res = await fetch('/api/sendlocation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formValues) }).then(r => r.json());
+        if (res.status == 200) Swal.fire('Berhasil!', res.message, 'success');
+        else Swal.fire('Gagal', res.message, 'error');
+    }
+}
+
+async function alertSendContact() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-green-600 align-middle">contact_page</span> Kirim Kontak',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan</label>
+                    <input id="swal-target" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628123456789">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Kontak</label>
+                    <input id="swal-contact" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628987654321">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nama Kontak</label>
+                    <input id="swal-name" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="John Doe">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({ sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, contact: document.getElementById('swal-contact').value, contactName: document.getElementById('swal-name').value })
+    });
+
+    if (formValues) {
+        const res = await fetch('/api/sendcontact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formValues) }).then(r => r.json());
+        if (res.status == 200) Swal.fire('Berhasil!', res.message, 'success');
+        else Swal.fire('Gagal', res.message, 'error');
+    }
+}
+
+async function alertSendSticker() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-yellow-600 align-middle">emoji_emotions</span> Kirim Sticker',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan</label>
+                    <input id="swal-target" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="628123456789">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">File Gambar</label>
+                    <input id="swal-file" type="file" accept="image/*" class="w-full text-sm">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Packname</label>
+                    <input id="swal-pack" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm _brand_input" value="">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Author</label>
+                    <input id="swal-author" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" value="Bot">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#eab308',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        preConfirm: () => {
+            const file = document.getElementById('swal-file').files[0];
+            return { file, sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, packname: document.getElementById('swal-pack').value, author: document.getElementById('swal-author').value };
+        }
+    });
+
+    if (formValues && formValues.file) {
+        const body = new FormData();
+        body.append('file', formValues.file);
+        body.append('sessions', formValues.sessions);
+        body.append('target', formValues.target);
+        body.append('packname', formValues.packname);
+        body.append('author', formValues.author);
+        
+        const res = await fetch('/api/sendsticker', { method: 'POST', body }).then(r => r.json());
+        if (res.status == 200) Swal.fire('Berhasil!', res.message, 'success');
+        else Swal.fire('Gagal', res.message, 'error');
+    }
+}
+
+async function alertSendBulk() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-teal-600 align-middle">groups</span> Kirim Massal',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nomor Tujuan (pisahkan dengan koma atau enter)</label>
+                    <textarea id="swal-targets" rows="4" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm font-mono" placeholder="628123456789&#10;628987654321&#10;628111222333"></textarea>
+                    <p class="text-xs text-slate-400 mt-1">Contoh: 628123456789, 628987654321</p>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan</label>
+                    <textarea id="swal-message" rows="3" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Tulis pesan broadcast..."></textarea>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Delay antar pesan (detik)</label>
+                    <input id="swal-delay" type="number" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" value="3" min="1" max="60">
+                    <p class="text-xs text-slate-400 mt-1">Rekomendasi: 3-5 detik untuk menghindari ban</p>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#0d9488',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim Broadcast',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({
+            sessions: document.getElementById('swal-session').value,
+            targets: document.getElementById('swal-targets').value,
+            message: document.getElementById('swal-message').value,
+            delay: parseInt(document.getElementById('swal-delay').value) || 3
+        })
+    });
+
+    if (formValues && formValues.targets && formValues.message) {
+        // Parse targets (split by comma, newline, or space)
+        const targets = formValues.targets.split(/[,\n\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+        
+        if (targets.length === 0) {
+            return Swal.fire('Error', 'Masukkan minimal 1 nomor tujuan', 'error');
+        }
+
+        Swal.fire({
+            title: 'Mengirim Broadcast...',
+            html: `<div id="bulk-progress">0 / ${targets.length} terkirim</div>`,
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        let success = 0, failed = 0;
+        for (let i = 0; i < targets.length; i++) {
+            try {
+                const res = await fetch('/api/sendtext', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessions: formValues.sessions,
+                        target: targets[i],
+                        message: formValues.message
+                    })
+                }).then(r => r.json());
+                
+                if (res.status == 200) success++;
+                else failed++;
+            } catch (e) {
+                failed++;
+            }
+            
+            document.getElementById('bulk-progress').innerHTML = `${i + 1} / ${targets.length} terkirim<br><span class="text-green-600">${success} berhasil</span> | <span class="text-red-600">${failed} gagal</span>`;
+            
+            // Delay between messages
+            if (i < targets.length - 1) {
+                await new Promise(r => setTimeout(r, formValues.delay * 1000));
+            }
+        }
+
+        Swal.fire({
+            title: 'Broadcast Selesai!',
+            html: `<div class="text-center"><p class="text-green-600 font-bold text-2xl">${success}</p><p class="text-sm text-slate-500">Berhasil terkirim</p><p class="text-red-600 font-bold text-2xl mt-2">${failed}</p><p class="text-sm text-slate-500">Gagal</p></div>`,
+            icon: failed === 0 ? 'success' : 'warning'
+        });
+    }
+}
+
+// Set brand value for inputs
+document.addEventListener('DOMContentLoaded', () => {
+    const observer = new MutationObserver(() => {
+        document.querySelectorAll('._brand_input').forEach(el => {
+            if (!el.value) el.value = window._author ? window._author() : '';
+        });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>

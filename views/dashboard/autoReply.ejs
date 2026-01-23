@@ -1,0 +1,145 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Auto Reply</h1>
+            <p class="text-sm text-slate-500">Atur balasan otomatis untuk pesan masuk</p>
+        </div>
+        <button onclick="addAutoReply()" class="py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Tambah Auto Reply
+        </button>
+    </div>
+
+    <!-- Info Card -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-blue-600">info</span>
+            <div>
+                <p class="text-sm font-medium text-blue-800">Cara Kerja Auto Reply</p>
+                <p class="text-xs text-blue-700 mt-1">Bot akan membalas otomatis ketika menerima pesan yang cocok dengan keyword yang ditentukan.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto Reply List -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">No</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Session</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Keyword</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Response</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <% if (replyList && replyList.length > 0) { %>
+                        <% replyList.forEach((item, index) => { %>
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 text-sm text-slate-600"><%= index + 1 %></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 bg-wa-green/10 text-wa-dark text-xs font-medium rounded-full"><%= item.session_name %></span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-slate-900 font-medium"><%= item.keyword %></td>
+                            <td class="px-4 py-3 text-sm text-slate-600 max-w-xs truncate"><%= item.response %></td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="deleteAutoReply('<%= item.id %>')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                            </td>
+                        </tr>
+                        <% }); %>
+                    <% } else { %>
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <span class="material-symbols-outlined text-5xl text-slate-300 mb-3">smart_toy</span>
+                                <p class="text-slate-500">Belum ada auto reply</p>
+                                <p class="text-xs text-slate-400 mt-1">Klik tombol "Tambah Auto Reply" untuk membuat</p>
+                            </div>
+                        </td>
+                    </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function addAutoReply() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-wa-green align-middle">smart_toy</span> Tambah Auto Reply',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
+                        <option value="<%= el.session_name %>"><%= el.session_name %></option>
+                        <% }); } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Keyword</label>
+                    <input id="swal-keyword" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="halo">
+                    <p class="text-xs text-slate-400 mt-1">Kata kunci yang akan memicu auto reply</p>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Response</label>
+                    <textarea id="swal-response" rows="3" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Halo juga! Ada yang bisa dibantu?"></textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#25D366',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({
+            session_name: document.getElementById('swal-session').value,
+            keyword: document.getElementById('swal-keyword').value,
+            response: document.getElementById('swal-response').value
+        })
+    });
+
+    if (formValues) {
+        const res = await fetch('/dashboard/auto-reply/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formValues)
+        }).then(r => r.json());
+        
+        if (res.status == 200) {
+            Swal.fire('Berhasil!', 'Auto reply ditambahkan', 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Gagal', res.message, 'error');
+        }
+    }
+}
+
+async function deleteAutoReply(id) {
+    const result = await Swal.fire({
+        title: 'Hapus Auto Reply?',
+        text: 'Data akan dihapus permanen',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    });
+    
+    if (result.isConfirmed) {
+        const res = await fetch(`/dashboard/auto-reply/delete?id=${id}`).then(r => r.json());
+        if (res.status == 200) {
+            Swal.fire('Berhasil!', 'Auto reply dihapus', 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Gagal', res.message, 'error');
+        }
+    }
+}
+</script>

@@ -1,0 +1,217 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Kelola Session</h1>
+            <p class="text-sm text-slate-500">Kelola beberapa nomor WhatsApp sekaligus</p>
+        </div>
+        <button onclick="createNewSession()" class="py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Tambah Session
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-wa-green/10">
+                <span class="material-symbols-outlined text-wa-green">smartphone</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-slate-900"><%= sessions.length %></p>
+                <p class="text-xs text-slate-500">Total Session</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-green-100">
+                <span class="material-symbols-outlined text-green-600">check_circle</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-green-600"><%= sessions.filter(s => s.status === 'CONNECTED').length %></p>
+                <p class="text-xs text-slate-500">Terhubung</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-yellow-100">
+                <span class="material-symbols-outlined text-yellow-600">pause_circle</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-yellow-600"><%= sessions.filter(s => s.status !== 'CONNECTED').length %></p>
+                <p class="text-xs text-slate-500">Tidak Aktif</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <% if (sessions && sessions.length > 0) { %>
+            <% sessions.forEach((session) => { %>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-wa-green to-wa-teal flex items-center justify-center">
+                                <i class="fab fa-whatsapp text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900"><%= session.session_name %></h3>
+                                <p class="text-sm text-slate-500"><%= session.session_number || 'Belum terhubung' %></p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full <%= session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' %>">
+                            <%= session.status %>
+                        </span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-2">
+                    <% if (session.status === 'CONNECTED') { %>
+                    <button onclick="stopSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+                        Stop
+                    </button>
+                    <% } else { %>
+                    <button onclick="startSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                        Start
+                    </button>
+                    <% } %>
+                    <button onclick="deleteSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                        Hapus
+                    </button>
+                </div>
+            </div>
+            <% }); %>
+        <% } %>
+
+        <!-- Add New Session Card -->
+        <div class="bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 overflow-hidden hover:border-wa-green hover:bg-wa-green/5 transition-colors cursor-pointer" onclick="createNewSession()">
+            <div class="p-8 flex flex-col items-center justify-center h-full min-h-[200px]">
+                <div class="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-3xl text-slate-400">add</span>
+                </div>
+                <p class="text-slate-600 font-medium">Tambah Session Baru</p>
+                <p class="text-xs text-slate-400 mt-1">Klik untuk menambah nomor WA</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal Area -->
+    <div id="qr-area" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+        <div class="text-center">
+            <h3 class="font-semibold text-slate-900 mb-4">Scan QR Code</h3>
+            <div id="qr-display" class="flex items-center justify-center min-h-[300px]">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-wa-green"></div>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Buka WhatsApp > Menu > Perangkat Tertaut > Tautkan Perangkat</p>
+        </div>
+    </div>
+</div>
+
+<script>
+const socket = io.connect(`<%= process.env.HOST %>`);
+
+socket.on(`update-qr`, (event) => {
+    document.getElementById("qr-area").classList.remove("hidden");
+    document.getElementById("qr-display").innerHTML = `
+        <div class="text-center">
+            <img class="mx-auto rounded-lg shadow-lg" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+            <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+        </div>`;
+});
+
+socket.on("logger", (event) => {
+    document.getElementById("qr-area").classList.add("hidden");
+    Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
+});
+
+async function createNewSession() {
+    const { value: sessionName } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-wa-green align-middle">add</span> Buat Session Baru',
+        html: `
+            <div class="text-left">
+                <label class="text-sm font-medium text-slate-700 mb-1 block">Nama Session</label>
+                <input id="swal-session-name" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="session_2">
+                <p class="text-xs text-slate-400 mt-1">Gunakan nama unik tanpa spasi</p>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#25D366',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Buat',
+        cancelButtonText: 'Batal',
+        preConfirm: () => document.getElementById('swal-session-name').value
+    });
+
+    if (sessionName) {
+        // Submit form to create session
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/session/create-session';
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'session_name';
+        input.value = sessionName;
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+async function startSession(sessionName) {
+    Swal.fire({
+        title: 'Memulai Session...',
+        text: 'Tunggu QR Code muncul',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const res = await fetch(`/session/start-session?session=${sessionName}`).then(r => r.json());
+    
+    if (res.status == 200) {
+        Swal.close();
+        // QR will appear via socket
+    } else {
+        Swal.fire('Gagal', res.message, 'error');
+    }
+}
+
+async function stopSession(sessionName) {
+    const result = await Swal.fire({
+        title: 'Stop Session?',
+        html: `Session <strong>${sessionName}</strong> akan dihentikan`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#eab308',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Stop!',
+        cancelButtonText: 'Batal'
+    });
+
+    if (result.isConfirmed) {
+        const res = await fetch(`/session/stop-session?session=${sessionName}`).then(r => r.json());
+        if (res.status == 200) {
+            Swal.fire('Berhasil!', 'Session dihentikan', 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Gagal', res.message, 'error');
+        }
+    }
+}
+
+async function deleteSession(sessionName) {
+    const result = await Swal.fire({
+        title: 'Hapus Session?',
+        html: `Session <strong>${sessionName}</strong> akan dihapus permanen`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    });
+
+    if (result.isConfirmed) {
+        window.location.href = `/session/delete-session/${sessionName}`;
+    }
+}
+</script>

@@ -1,0 +1,155 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div>
+        <h1 class="text-xl font-bold text-slate-900">API Documentation</h1>
+        <p class="text-sm text-slate-500">Dokumentasi endpoint API untuk integrasi</p>
+    </div>
+
+    <!-- Base URL -->
+    <div class="bg-wa-green/10 border border-wa-green/20 rounded-xl p-4">
+        <p class="text-sm font-medium text-wa-dark mb-2">Base URL</p>
+        <code class="bg-white px-3 py-2 rounded-lg text-sm font-mono text-slate-800 block"><%= process.env.HOST || 'http://localhost:8080' %></code>
+    </div>
+
+    <!-- API Endpoints -->
+    <div class="space-y-4">
+        <!-- Send Text -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">POST</span>
+                <code class="text-sm font-mono text-slate-800">/api/sendtext</code>
+                <span class="text-sm text-slate-500">- Kirim pesan teks</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Request Body:</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">{
+    "sessions": "session_1",
+    "target": "628123456789",
+    "message": "Hello World!"
+}</pre>
+            </div>
+        </div>
+
+        <!-- Send Media -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">POST</span>
+                <code class="text-sm font-mono text-slate-800">/api/sendmedia</code>
+                <span class="text-sm text-slate-500">- Kirim media (gambar/video/dokumen)</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Request Body (JSON atau FormData):</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">{
+    "sessions": "session_1",
+    "target": "628123456789",
+    "message": "Caption (optional)",
+    "url": "https://example.com/image.jpg"
+}
+
+// Atau gunakan FormData dengan field: file, sessions, target, message</pre>
+            </div>
+        </div>
+
+        <!-- Send Location -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">POST</span>
+                <code class="text-sm font-mono text-slate-800">/api/sendlocation</code>
+                <span class="text-sm text-slate-500">- Kirim lokasi</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Request Body:</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">{
+    "sessions": "session_1",
+    "target": "628123456789",
+    "lat": "-6.200000",
+    "long": "106.816666"
+}</pre>
+            </div>
+        </div>
+
+        <!-- Send Contact -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">POST</span>
+                <code class="text-sm font-mono text-slate-800">/api/sendcontact</code>
+                <span class="text-sm text-slate-500">- Kirim kontak</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Request Body:</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">{
+    "sessions": "session_1",
+    "target": "628123456789",
+    "contact": "628987654321",
+    "contactName": "John Doe"
+}</pre>
+            </div>
+        </div>
+
+        <!-- Send Sticker -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">POST</span>
+                <code class="text-sm font-mono text-slate-800">/api/sendsticker</code>
+                <span class="text-sm text-slate-500">- Kirim sticker</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Request Body (FormData):</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">FormData:
+- file: [image file]
+- sessions: "session_1"
+- target: "628123456789"
+- packname: "MyPack"
+- author: "Bot"</pre>
+            </div>
+        </div>
+
+        <!-- Get Sessions -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">GET</span>
+                <code class="text-sm font-mono text-slate-800">/api/session</code>
+                <span class="text-sm text-slate-500">- Dapatkan daftar session</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-medium text-slate-700 mb-2">Response:</p>
+                <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">{
+    "data": [
+        {
+            "session_name": "session_1",
+            "session_number": "628123456789",
+            "status": "CONNECTED"
+        }
+    ]
+}</pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Example Code -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Contoh Penggunaan (PHP)</h3>
+        </div>
+        <div class="p-4">
+            <pre class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto">&lt;?php
+$data = [
+    'sessions' => 'session_1',
+    'target' => '628123456789',
+    'message' => 'Hello from PHP!'
+];
+
+$ch = curl_init('http://localhost:8080/api/sendtext');
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+print_r(json_decode($response, true));
+?&gt;</pre>
+        </div>
+    </div>
+</div>
