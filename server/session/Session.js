@@ -67,10 +67,9 @@ class ConnectionSession extends SessionDatabase {
     sessions = {};
   }
 
-  async generateQr(input, session_name) {
+async generateQr(input, session_name) {
     let rawData = await qrcode.toDataURL(input, { scale: 8 });
     let dataBase64 = rawData.replace(/^data:image\/png;base64,/, "");
-    await modules.sleep(3000);
     socket.emit(`update-qr`, { buffer: dataBase64, session_name });
     this.count++;
     console.log(

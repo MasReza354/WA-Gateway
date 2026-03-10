@@ -40,4 +40,4 @@ const socket = io.on("connection", (socket) => {
 	return socket;
 });
 
-export { socket, io, moment };
+export { socket, moment };

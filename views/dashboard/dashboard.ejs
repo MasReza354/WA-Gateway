@@ -221,6 +221,7 @@ socket.on("logger", (event) => {
         </div>`;
     
     document.getElementById('stat-session').textContent = '1';
+    updateStatStatus(event.status);
 });
 
 socket.on(`session-status`, (event) => {
@@ -229,6 +230,8 @@ socket.on(`session-status`, (event) => {
         statusEl.textContent = event.status;
         statusEl.className = `text-xs mt-1 px-2 py-0.5 rounded-full inline-block ${event.status == 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
     }
+    
+    updateStatStatus(event.status);
     
     const buttonEl = document.getElementById("buttonSession");
     if (buttonEl) {
@@ -247,6 +250,28 @@ socket.on(`session-status`, (event) => {
         }
     }
 });
+
+function updateStatStatus(status) {
+    const statStatusEl = document.getElementById("stat-status");
+    if (statStatusEl) {
+        const isConnected = status === 'CONNECTED';
+        statStatusEl.textContent = status;
+        statStatusEl.className = `text-sm font-bold ${isConnected ? 'text-green-600' : 'text-red-600'}`;
+        
+        const parentDiv = statStatusEl.closest('.bg-white');
+        if (parentDiv) {
+            const iconSpan = parentDiv.querySelector('.material-symbols-outlined');
+            const iconDiv = iconSpan ? iconSpan.closest('div') : null;
+            if (iconSpan) {
+                iconSpan.textContent = isConnected ? 'check_circle' : 'cancel';
+                iconSpan.className = `material-symbols-outlined ${isConnected ? 'text-green-600' : 'text-red-600'}`;
+            }
+            if (iconDiv) {
+                iconDiv.className = `p-3 rounded-xl ${isConnected ? 'bg-green-100' : 'bg-red-100'}`;
+            }
+        }
+    }
+}
 
 async function alertStartSession(session_name) {
     Swal.fire({

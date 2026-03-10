@@ -5,7 +5,6 @@ import {
   isJidBroadcast,
   isJidGroup,
   jidNormalizedUser,
-  toBuffer,
 } from "@whiskeysockets/baileys";
 import fs from "fs";
 import { moment } from "../../../config/index.js";

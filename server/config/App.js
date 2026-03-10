@@ -26,11 +26,11 @@ class App {
 		this.app.use(express.urlencoded({ extended: true }));
 		this.app.use(express.json());
 		this.app.use(session({ 
-			secret: "wa-gate-secret-key-2026", 
+			secret: process.env.SESSION_SECRET || "wa-gate-secret-key-2026", 
 			resave: false, 
 			saveUninitialized: false, 
 			cookie: { 
-				maxAge: 24 * 60 * 60 * 1000 // 24 hours
+				maxAge: 24 * 60 * 60 * 1000
 			} 
 		}));
 		this.app.use(flash());

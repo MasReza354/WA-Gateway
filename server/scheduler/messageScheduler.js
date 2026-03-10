@@ -3,7 +3,6 @@ import { getAllSessions } from "../session/Session.js";
 
 const scheduledDb = new ScheduledMessageDatabase();
 
-// Check and send scheduled messages every minute
 export function startScheduler() {
     console.log("[Scheduler] Message scheduler started");
     
@@ -15,15 +14,12 @@ export function startScheduler() {
             for (const msg of pendingMessages) {
                 const scheduledTime = new Date(msg.scheduled_at);
                 
-                // If scheduled time has passed
                 if (scheduledTime <= now) {
                     console.log(`[Scheduler] Sending scheduled message to ${msg.target}`);
                     
                     try {
                         const sessions = getAllSessions();
                         
-                        // sessions di-spread dari baileys client, jadi sendMessage ada di level atas
-                        // Juga pastikan session tidak sedang dalam keadaan stop
                         if (sessions && sessions.sendMessage && sessions.isStop === false) {
                             const jid = msg.target.includes("@") ? msg.target : `${msg.target}@s.whatsapp.net`;
                             
@@ -44,7 +40,5 @@ export function startScheduler() {
         } catch (error) {
             console.log(`[Scheduler] Error: ${error.message}`);
         }
-    }, 60000); // Check every 60 seconds
+    }, 60000);
 }
-
-export default { startScheduler };

@@ -5,7 +5,7 @@ import { moment } from "./index.js";
 
 const { DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DIALECT } = process.env;
 
-let connection = mysql.createPool({ waitForConnections: true, connectTimeout: 30000, host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASSWORD });
+const connection = mysql.createPool({ waitForConnections: true, connectTimeout: 30000, host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASSWORD });
 const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
 	host: DB_HOST,
 	port: DB_PORT,
@@ -35,4 +35,4 @@ async function connectDatabase() {
 	});
 }
 
-export { connectDatabase, sequelize, connection };
+export { connectDatabase, sequelize };

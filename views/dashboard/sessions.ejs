@@ -27,7 +27,7 @@
                 <span class="material-symbols-outlined text-green-600">check_circle</span>
             </div>
             <div>
-                <p class="text-2xl font-bold text-green-600"><%= sessions.filter(s => s.status === 'CONNECTED').length %></p>
+                <p class="text-2xl font-bold text-green-600 stat-connected"><%= sessions.filter(s => s.status === 'CONNECTED').length %></p>
                 <p class="text-xs text-slate-500">Terhubung</p>
             </div>
         </div>
@@ -36,7 +36,7 @@
                 <span class="material-symbols-outlined text-yellow-600">pause_circle</span>
             </div>
             <div>
-                <p class="text-2xl font-bold text-yellow-600"><%= sessions.filter(s => s.status !== 'CONNECTED').length %></p>
+                <p class="text-2xl font-bold text-yellow-600 stat-inactive"><%= sessions.filter(s => s.status !== 'CONNECTED').length %></p>
                 <p class="text-xs text-slate-500">Tidak Aktif</p>
             </div>
         </div>
@@ -46,7 +46,7 @@
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         <% if (sessions && sessions.length > 0) { %>
             <% sessions.forEach((session) => { %>
-            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden" data-session="<%= session.session_name %>">
                 <div class="p-4 border-b border-slate-100">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -58,12 +58,12 @@
                                 <p class="text-sm text-slate-500"><%= session.session_number || 'Belum terhubung' %></p>
                             </div>
                         </div>
-                        <span class="px-2 py-1 text-xs font-medium rounded-full <%= session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' %>">
+                        <span class="status-badge px-2 py-1 text-xs font-medium rounded-full <%= session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' %>">
                             <%= session.status %>
                         </span>
                     </div>
                 </div>
-                <div class="p-4 space-y-2">
+                <div class="p-4 space-y-2 button-container">
                     <% if (session.status === 'CONNECTED') { %>
                     <button onclick="stopSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-[18px]">stop_circle</span>
@@ -125,6 +125,44 @@ socket.on("logger", (event) => {
     Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
 });
 
+socket.on("session-status", (event) => {
+    const statusBadge = document.querySelector(`[data-session="${event.session_name}"] .status-badge`);
+    if (statusBadge) {
+        statusBadge.textContent = event.status;
+        statusBadge.className = `status-badge px-2 py-1 text-xs font-medium rounded-full ${event.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
+    }
+    
+    const buttonContainer = document.querySelector(`[data-session="${event.session_name}"] .button-container`);
+    if (buttonContainer) {
+        if (event.status === "CONNECTED") {
+            buttonContainer.innerHTML = `
+                <button onclick="stopSession('${event.session_name}')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+                    Stop
+                </button>`;
+        } else {
+            buttonContainer.innerHTML = `
+                <button onclick="startSession('${event.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                    Start
+                </button>`;
+        }
+    }
+    
+    updateStats();
+});
+
+function updateStats() {
+    const connected = document.querySelectorAll('.status-badge.text-green-700').length;
+    const total = document.querySelectorAll('.status-badge').length;
+    
+    const statConnected = document.querySelector('.stat-connected');
+    const statInactive = document.querySelector('.stat-inactive');
+    
+    if (statConnected) statConnected.textContent = connected;
+    if (statInactive) statInactive.textContent = total - connected;
+}
+
 async function createNewSession() {
     const { value: sessionName } = await Swal.fire({
         title: '<span class="material-symbols-outlined text-wa-green align-middle">add</span> Buat Session Baru',
@@ -144,7 +182,6 @@ async function createNewSession() {
     });
 
     if (sessionName) {
-        // Submit form to create session
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/session/create-session';
@@ -170,7 +207,6 @@ async function startSession(sessionName) {
     
     if (res.status == 200) {
         Swal.close();
-        // QR will appear via socket
     } else {
         Swal.fire('Gagal', res.message, 'error');
     }
