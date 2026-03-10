@@ -1,27 +1,26 @@
-import { DataTypes } from "sequelize";
 import { sequelize } from "../../config/Database.js";
 
 const AutoReplyModel = sequelize.define(
 	"AutoReply",
 	{
 		session_name: {
-			type: DataTypes.STRING,
+			type: "STRING",
 			allowNull: false,
 		},
 		session_number: {
-			type: DataTypes.STRING,
+			type: "STRING",
 			allowNull: false,
 		},
 		keyword: {
-			type: DataTypes.STRING,
+			type: "STRING",
 			allowNull: false,
 		},
 		date: {
-			type: DataTypes.STRING,
+			type: "STRING",
 			allowNull: false,
 		},
 		response: {
-			type: DataTypes.STRING,
+			type: "STRING",
 			allowNull: false,
 		},
 	},
