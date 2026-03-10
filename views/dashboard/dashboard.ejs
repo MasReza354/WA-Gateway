@@ -92,15 +92,22 @@
                     </h3>
                 </div>
                 <div class="p-4">
-                    <form action="/session/create-session" method="post" class="space-y-3">
-                        <input type="text" name="session_name" 
+                    <form id="createForm" action="/session/create-session" method="post" class="space-y-3">
+                        <input type="text" name="session_name" id="sessionNameInput"
                             class="w-full rounded-lg border border-slate-200 py-2.5 px-4 text-sm focus:ring-2 focus:ring-wa-green/20 focus:border-wa-green" 
                             placeholder="Nama session (contoh: session_1)" required />
                         <button type="submit" class="w-full py-2.5 px-4 bg-gradient-to-r from-wa-green to-wa-teal text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-[18px]">qr_code</span>
+                            <span class="material-symbols-outlined text-[18px]">add_circle</span>
                             Buat Session
                         </button>
                     </form>
+                    <div id="generateQRSection" class="hidden mt-3 pt-3 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-2">Session dibuat! Klik tombol di bawah untuk generate QR Code:</p>
+                        <button onclick="generateQRCode()" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-opacity flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">qr_code</span>
+                            Generate QR Code
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -131,10 +138,15 @@
                                 <span class="material-symbols-outlined text-[18px]">stop_circle</span>
                                 Stop Session
                             </button>
-                            <% } else { %>
+                            <% } else if (session.status == 'STOPPED') { %>
                             <button onclick="alertStartSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                                 <span class="material-symbols-outlined text-[18px]">play_circle</span>
                                 Start Session
+                            </button>
+                            <% } else { %>
+                            <button onclick="generateQRCode()" class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-[18px]">qr_code</span>
+                                Generate QR Code
                             </button>
                             <% } %>
                         </div>
@@ -161,8 +173,56 @@
 
 <script>
 const socket = io.connect(`<%= process.env.HOST %>`);
+let currentSessionName = '<%= session ? session.session_name : "" %>';
 
 document.getElementById('stat-session').textContent = '<%= session ? "1" : "0" %>';
+
+<% if (!session) { %>
+document.getElementById("createForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const sessionName = document.getElementById("sessionNameInput").value;
+    if (sessionName) {
+        fetch("/session/create-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `session_name=${encodeURIComponent(sessionName)}`
+        }).then(() => {
+            currentSessionName = sessionName;
+            document.getElementById("generateQRSection").classList.remove("hidden");
+            document.getElementById("createForm").reset();
+        });
+    }
+});
+<% } %>
+
+function generateQRCode() {
+    if (!currentSessionName) {
+        Swal.fire("Error", "No session selected!", "error");
+        return;
+    }
+    Swal.fire({
+        title: "Generate QR Code",
+        text: `Generate QR Code untuk session ${currentSessionName}?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#25D366",
+        cancelButtonColor: "#64748b",
+        confirmButtonText: "Ya, Generate!",
+        cancelButtonText: "Batal"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/session/generate-qr?session=${encodeURIComponent(currentSessionName)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 200) {
+                        Swal.fire("Berhasil!", "QR Code sedang di-generate, tunggu beberapa detik...", "success");
+                    } else {
+                        Swal.fire("Gagal", data.message, "error");
+                    }
+                });
+        }
+    });
+}
 
 socket.on("connection-status", (event) => {
     document.getElementById("cancelqr").innerHTML = `<span class="text-wa-green font-medium">Status Update!</span>`;
@@ -196,6 +256,7 @@ socket.on("logger", (event) => {
             </div>
         </div>`;
     
+    currentSessionName = event.session_name;
     document.getElementById("sessionCreate").innerHTML = `
         <div class="text-center space-y-3">
             <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-wa-green to-wa-teal flex items-center justify-center">
@@ -224,6 +285,7 @@ socket.on("logger", (event) => {
 });
 
 socket.on(`session-status`, (event) => {
+    currentSessionName = event.session_name;
     const statusEl = document.getElementById("statusSession");
     if (statusEl) {
         statusEl.textContent = event.status;
@@ -243,6 +305,12 @@ socket.on(`session-status`, (event) => {
                 <button onclick="alertStartSession('${event.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]">play_circle</span>
                     Start Session
+                </button>`;
+        } else {
+            buttonEl.innerHTML = `
+                <button onclick="generateQRCode()" class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">qr_code</span>
+                    Generate QR Code
                 </button>`;
         }
     }
