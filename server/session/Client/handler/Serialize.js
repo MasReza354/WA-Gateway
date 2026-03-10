@@ -5,10 +5,13 @@ import {
   isJidBroadcast,
   isJidGroup,
   jidNormalizedUser,
+  toBuffer,
 } from "@whiskeysockets/baileys";
 import fs from "fs";
 import { moment } from "../../../config/index.js";
 import Client from "./Client.js";
+
+const { PREFIX } = process.env;
 
 export default class Serialize extends Client {
   constructor() {
@@ -100,6 +103,8 @@ export default class Serialize extends Client {
         m.isMedia.isQuotedLocation = quotedType == "locationMessage";
       }
     }
+    m.isCmd = m.body.startsWith(PREFIX);
+    m.command = m.isCmd ? m.body.slice(1).trim().split(/ +/).shift().toLowerCase() : null;
     m.msg = msg;
     m.download = (path = null) => this.downloadMedia(msg.message, path);
     return m;

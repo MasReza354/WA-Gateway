@@ -16,6 +16,10 @@ class ScheduledMessageDatabase {
         });
     }
 
+    async getScheduledMessageById(id) {
+        return await ScheduledMessage.findByPk(id);
+    }
+
     async updateStatus(id, status, sent_at = null) {
         return await ScheduledMessage.update(
             { status, sent_at },
@@ -25,6 +29,10 @@ class ScheduledMessageDatabase {
 
     async deleteScheduledMessage(id) {
         return await ScheduledMessage.destroy({ where: { id } });
+    }
+
+    async deleteAllScheduledMessages() {
+        return await ScheduledMessage.destroy({ where: {} });
     }
 }
 

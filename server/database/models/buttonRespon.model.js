@@ -1,26 +1,27 @@
+import { DataTypes } from "sequelize";
 import { sequelize } from "../../config/Database.js";
 
 const ButtonResponseModel = sequelize.define(
 	"ButtonResponse",
 	{
 		session_name: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		target_number: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		msg_id: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		keyword: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		response: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 	},

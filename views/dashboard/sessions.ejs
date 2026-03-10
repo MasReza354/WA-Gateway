@@ -69,15 +69,10 @@
                         <span class="material-symbols-outlined text-[18px]">stop_circle</span>
                         Stop
                     </button>
-                    <% } else if (session.status === 'STOPPED') { %>
+                    <% } else { %>
                     <button onclick="startSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-[18px]">play_circle</span>
                         Start
-                    </button>
-                    <% } else { %>
-                    <button onclick="generateQR('<%= session.session_name %>')" class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">qr_code</span>
-                        Generate QR
                     </button>
                     <% } %>
                     <button onclick="deleteSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
@@ -164,52 +159,20 @@ async function createNewSession() {
 }
 
 async function startSession(sessionName) {
-    const result = await Swal.fire({
-        title: 'Start Session?',
-        html: `Session <strong>${sessionName}</strong> akan dimulai`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#25D366',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, Mulai!',
-        cancelButtonText: 'Batal'
+    Swal.fire({
+        title: 'Memulai Session...',
+        text: 'Tunggu QR Code muncul',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
     });
 
-    if (result.isConfirmed) {
-        const res = await fetch(`/session/start-session?session=${sessionName}`).then(r => r.json());
-        if (res.status == 200) {
-            Swal.fire('Berhasil!', 'Session dimulai, tunggu QR Code', 'success');
-        } else {
-            Swal.fire('Gagal', res.message, 'error');
-        }
-    }
-}
-
-async function generateQR(sessionName) {
-    const result = await Swal.fire({
-        title: 'Generate QR Code?',
-        html: `Generate QR Code untuk session <strong>${sessionName}</strong>?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#25D366',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, Generate!',
-        cancelButtonText: 'Batal'
-    });
-
-    if (result.isConfirmed) {
-        const res = await fetch(`/session/generate-qr?session=${sessionName}`).then(r => r.json());
-        if (res.status == 200) {
-            Swal.fire({
-                title: 'QR Code Generating',
-                text: 'Tunggu beberapa detik, QR Code akan muncul',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
-            });
-        } else {
-            Swal.fire('Gagal', res.message, 'error');
-        }
+    const res = await fetch(`/session/start-session?session=${sessionName}`).then(r => r.json());
+    
+    if (res.status == 200) {
+        Swal.close();
+        // QR will appear via socket
+    } else {
+        Swal.fire('Gagal', res.message, 'error');
     }
 }
 

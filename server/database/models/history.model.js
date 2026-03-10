@@ -1,26 +1,27 @@
+import { DataTypes } from "sequelize";
 import { sequelize } from "../../config/Database.js";
 
 const History = sequelize.define(
 	"History",
 	{
 		session_name: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		target: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		type: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		date: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		caption: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 	},

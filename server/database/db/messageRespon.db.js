@@ -79,13 +79,12 @@ class AutoReply {
 		}
 	}
 
-  async checkReplyMessage() {
-    const array = await this.reply.findAll();
-    if (Array.isArray(array) && array.length) {
-      return array;
-    }
-    return [];
-  }
+	async checkReplyMessage() {
+		const array = await this.reply.findAll();
+		if (Array.isArray(array) && array.length) {
+			return array;
+		}
+	}
 
 	async editReplyMessage(session_number, keyword, newKeyword, newRespon) {
 		const array = await this.reply.findAll({ where: { session_number } });

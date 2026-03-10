@@ -24,17 +24,20 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	// Start message scheduler
 	startScheduler();
 	
-	// Set all sessions to STOPPED on startup
-	await new SessionDatabase().startProgram();
-	
+	if (AUTO_START == "y") {
+		await new ConnectionSession().createSession(SESSION_NAME);
+	} else {
+		await new SessionDatabase().startProgram();
+	}
 	console.log(modules.color("[APP]", "#EB6112"), modules.color(moment().format("DD/MM/YY HH:mm:ss"), "#F8C471"), modules.color(`App Listening at http://localhost:${server.PORT}`, "#82E0AA"));
 });
 
-const socket = new Server(serverHttp).on("connection", (socket) => {
+const io = new Server(serverHttp);
+const socket = io.on("connection", (socket) => {
 	socket.on("disconnect", () => {
 		console.log("Socket Disconnect");
 	});
 	return socket;
 });
 
-export { socket, moment };
+export { socket, io, moment };

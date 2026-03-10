@@ -1,35 +1,36 @@
+import { DataTypes } from "sequelize";
 import { sequelize } from "../../config/Database.js";
 
 const ScheduledMessage = sequelize.define(
     "ScheduledMessage",
     {
         id: {
-            type: "INTEGER",
+            type: DataTypes.INTEGER,
             primaryKey: true,
             autoIncrement: true,
         },
         session_name: {
-            type: "STRING",
+            type: DataTypes.STRING,
             allowNull: false,
         },
         target: {
-            type: "STRING",
+            type: DataTypes.STRING,
             allowNull: false,
         },
         message: {
-            type: "TEXT",
+            type: DataTypes.TEXT,
             allowNull: false,
         },
         scheduled_at: {
-            type: "DATE",
+            type: DataTypes.DATE,
             allowNull: false,
         },
         status: {
-            type: "STRING",
-            defaultValue: "pending",
+            type: DataTypes.STRING,
+            defaultValue: "pending", // pending, sent, failed, cancelled
         },
         sent_at: {
-            type: "DATE",
+            type: DataTypes.DATE,
             allowNull: true,
         },
     },
