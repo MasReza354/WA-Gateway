@@ -28,9 +28,7 @@ class SessionDatabase {
 
 	async findAllSessionDB() {
 		const array = await this.session.findAll();
-		if (Array.isArray(array) && array.length !== 0) {
-			return array;
-		}
+		return Array.isArray(array) ? array : [];
 	}
 
 	async updateStatusSessionDB(session_name, status) {
