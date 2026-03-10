@@ -25,96 +25,92 @@ class ControllerUser extends ConnectionSession {
 					return res.redirect(endpoint);
 				}
 			}
-		} catch (error) {
-			console.log(error);
-			req.flash("error_msg", `Something Wrong`);
-			return res.redirect(endpoint);
-		}
-	}
+    } catch (error) {
+      req.flash("error_msg", `Something Wrong`);
+      return res.redirect(endpoint);
+    }
+  }
 
-	async startOneSession(req, res) {
-		try {
-			let { session } = req.query;
-			if (session) {
-				const client = this.getClient();
-				const isEmpty = !client || (Object.keys(client).length === 0 && client.constructor === Object);
-				const isStopped = client && client.isStop === true;
-				// Juga izinkan start jika isStop undefined (session dalam keadaan tidak stabil)
-				const isUnstable = client && Object.keys(client).length > 0 && client.isStop === undefined;
+  async startOneSession(req, res) {
+    try {
+      let { session } = req.query;
+      if (session) {
+        const client = this.getClient();
+        const isEmpty = !client || !client.client;
+        const isStopped = client && client.isStop === true;
+        const isUnstable = client && client.client && client.isStop === undefined;
 
-				if (isEmpty || isStopped || isUnstable) {
-					if (fs.existsSync(`${this.sessionPath}/${session}`)) {
-						await this.createSession(session);
-						return res.send({ status: 200, message: `Success Start Session ${session}` });
-					} else {
-						return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
-					}
-				} else {
-					return res.send({ status: 403, message: `Session is already active before!` });
-				}
-			} else {
-				res.send({ status: 400, message: "Input Data!" });
-			}
-		} catch (error) {
-			console.log(error);
-			res.send({ status: 500, message: "Something Wrong" });
-		}
-	}
+        if (isEmpty || isStopped || isUnstable) {
+          if (fs.existsSync(`${this.sessionPath}/${session}`)) {
+            await this.createSession(session);
+            return res.send({ status: 200, message: `Success Start Session ${session}` });
+          } else {
+            return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
+          }
+        } else {
+          return res.send({ status: 403, message: `Session is already active before!` });
+        }
+      } else {
+        res.send({ status: 400, message: "Input Data!" });
+      }
+    } catch (error) {
+      res.send({ status: 500, message: "Something Wrong" });
+    }
+  }
 
-	async stopOneSession(req, res) {
-		try {
-			let { session } = req.query;
-			if (session) {
-				const client = this.getClient();
-				const hasClient = client && Object.keys(client).length > 0;
-				// Gunakan strict === false agar undefined tidak lolos
-				const isActive = hasClient && client.isStop === false;
+  async stopOneSession(req, res) {
+    try {
+      let { session } = req.query;
+      if (session) {
+        const client = this.getClient();
+        const hasClient = client && client.client && Object.keys(client).length > 0;
+        // Gunakan strict === false agar undefined tidak lolos
+        const isActive = hasClient && client.isStop === false;
 
-				if (isActive) {
-					if (fs.existsSync(`${this.sessionPath}/${session}`)) {
-						client.isStop = true;
-						try {
-							await client.ws.close();
-						} catch (wsError) {
-							// WebSocket mungkin sudah tertutup, tetap lanjutkan
-							console.log(`[SYS] WebSocket close warning: ${wsError.message}`);
-						}
-						return res.send({ status: 200, message: `Success Stopped Session ${session}` });
-					} else {
-						return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
-					}
-				} else if (!hasClient) {
-					return res.send({ status: 403, message: `Tidak ada session aktif saat ini!` });
-				} else {
-					return res.send({ status: 403, message: `Session sudah dalam keadaan berhenti!` });
-				}
-			} else {
-				res.send({ status: 400, message: "Input Data!" });
-			}
-		} catch (error) {
-			console.log(error);
-			res.send({ status: 500, message: "Something Wrong" });
-		}
-	}
+        if (isActive) {
+          if (fs.existsSync(`${this.sessionPath}/${session}`)) {
+            client.isStop = true;
+            try {
+              if (client.client && client.client.ws) {
+                await client.client.ws.close();
+              }
+            } catch (wsError) {
+              // WebSocket mungkin sudah tertutup, tetap lanjutkan
+            }
+            return res.send({ status: 200, message: `Success Stop Session ${session}` });
+          } else {
+            return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
+          }
+        } else if (!hasClient) {
+          return res.send({ status: 403, message: `Tidak ada session aktif saat ini!` });
+        } else {
+          return res.send({ status: 403, message: `Session sudah dalam keadaan berhenti!` });
+        }
+      } else {
+        res.send({ status: 400, message: "Input Data!" });
+      }
+    } catch (error) {
+      res.send({ status: 500, message: "Something Wrong" });
+    }
+  }
 
-	async deleteUserSession(req, res) {
-		let endpoint = "/dashboard";
-		try {
-			let { session } = req.params;
-			if (session) {
-				await this.deleteSession(session);
-				req.flash("success_msg", `Success Delete Session ${session}!`);
-				return res.redirect(endpoint);
-			} else {
-				req.flash("error_msg", `Input Data`);
-				return res.redirect(endpoint);
-			}
-		} catch (error) {
-			console.log(error);
-			req.flash("error_msg", `Something Wrong`);
-			return res.redirect(endpoint);
-		}
-	}
+  async deleteUserSession(req, res) {
+    let endpoint = "/dashboard";
+    try {
+      let { session } = req.params;
+      if (session) {
+        await this.deleteSession(session);
+        req.flash("success_msg", `Success Delete Session ${session}!`);
+        return res.redirect(endpoint);
+      } else {
+        req.flash("error_msg", `Input Data`);
+        return res.redirect(endpoint);
+      }
+    } catch (error) {
+      req.flash("error_msg", `Something Wrong`);
+      return res.redirect(endpoint);
+    }
+  }
 }
 
 export default ControllerUser;

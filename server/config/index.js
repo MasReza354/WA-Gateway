@@ -32,12 +32,11 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	console.log(modules.color("[APP]", "#EB6112"), modules.color(moment().format("DD/MM/YY HH:mm:ss"), "#F8C471"), modules.color(`App Listening at http://localhost:${server.PORT}`, "#82E0AA"));
 });
 
-const io = new Server(serverHttp);
-const socket = io.on("connection", (socket) => {
+const socket = new Server(serverHttp).on("connection", (socket) => {
 	socket.on("disconnect", () => {
 		console.log("Socket Disconnect");
 	});
 	return socket;
 });
 
-export { socket, io, moment };
+export { socket, moment };

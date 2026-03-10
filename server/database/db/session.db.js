@@ -5,10 +5,9 @@ class SessionDatabase {
 		this.session = Session;
 	}
 
-	async createSessionDB(session_name, session_number) {
-		console.log(session_name, session_number);
-		await this.session.create({ session_name, session_number, status: "CONNECTED" });
-	}
+  async createSessionDB(session_name, session_number) {
+    await this.session.create({ session_name, session_number, status: "CONNECTED" });
+  }
 
 	async deleteSessionDB(session_name) {
 		const sesi = await this.session.findOne({ where: { session_name } });
