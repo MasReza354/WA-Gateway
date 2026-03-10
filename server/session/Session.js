@@ -11,10 +11,9 @@ import Message from "./Client/handler/Message.js";
 const { SESSION_PATH, LOG_PATH } = process.env;
 let sessions = {};
 
-// Export function to get session by name
-export function getSession(session_name) {
-  return sessions[session_name] || sessions;
-}
+// Tracking untuk cleanup resource
+let storeInterval = null;
+let currentClient = null;
 
 // Export all sessions
 export function getAllSessions() {
@@ -33,7 +32,34 @@ class ConnectionSession extends SessionDatabase {
     return sessions ?? null;
   }
 
+  /**
+   * Membersihkan resource dari client lama sebelum membuat yang baru.
+   * Mencegah memory leak dari event listener dan setInterval yang menumpuk.
+   */
+  cleanupOldClient() {
+    // Clear store write interval
+    if (storeInterval) {
+      clearInterval(storeInterval);
+      storeInterval = null;
+    }
+
+    // Hapus semua event listener dari client lama
+    if (currentClient && currentClient.ev) {
+      try {
+        currentClient.ev.removeAllListeners("connection.update");
+        currentClient.ev.removeAllListeners("creds.update");
+        currentClient.ev.removeAllListeners("messages.upsert");
+      } catch (e) {
+        // Abaikan error saat cleanup
+      }
+    }
+    currentClient = null;
+  }
+
   async deleteSession(session_name) {
+    // Cleanup resource terlebih dahulu
+    this.cleanupOldClient();
+
     if (fs.existsSync(`${this.sessionPath}/${session_name}`)) fs.rmSync(`${this.sessionPath}/${session_name}`, { force: true, recursive: true });
     if (fs.existsSync(`${this.sessionPath}/store/${session_name}.json`)) fs.unlinkSync(`${this.sessionPath}/store/${session_name}.json`);
     if (fs.existsSync(`${this.logPath}/${session_name}.txt`)) fs.unlinkSync(`${this.logPath}/${session_name}.txt`);
@@ -51,10 +77,16 @@ class ConnectionSession extends SessionDatabase {
       modules.color("[SYS]", "#EB6112"),
       modules.color(`[Session: ${session_name}] Open the browser, a qr has appeared on the website, scan it now!`, "#E6B0AA")
     );
-    console.log(this.count);
+    console.log(`QR Count: ${this.count}`);
   }
 
   async createSession(session_name) {
+    // Cleanup client lama sebelum membuat yang baru (mencegah memory leak)
+    this.cleanupOldClient();
+
+    // Reset QR count untuk session baru
+    this.count = 0;
+
     const sessionDir = `${this.sessionPath}/${session_name}`;
     const storePath = `${this.sessionPath}/store/${session_name}.json`;
     let { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -73,20 +105,28 @@ class ConnectionSession extends SessionDatabase {
 
     const client = WASocket.default(options);
 
-    store.readFromFile(storePath);
-    setInterval(() => {
+    // Simpan interval reference agar bisa di-clear nanti
+    storeInterval = setInterval(() => {
       store.writeToFile(storePath);
     }, 10_000);
     store.bind(client.ev);
+
+    // Simpan reference ke client saat ini
+    currentClient = client;
     sessions = { ...client, isStop: false };
 
     client.ev.on("creds.update", saveCreds);
     client.ev.on("connection.update", async (update) => {
+      // Jika client ini sudah bukan client aktif, abaikan event-nya
+      if (currentClient !== client) {
+        try { client.ev.removeAllListeners("connection.update"); } catch (e) {}
+        return;
+      }
+
       if (this.count >= 3) {
         this.deleteSession(session_name);
         socket.emit("connection-status", { session_name, result: "No Response, QR Scan Canceled" });
         console.log(`Count : ${this.count}, QR Stopped!`);
-        client.ev.removeAllListeners("connection.update");
         return;
       }
 
@@ -113,58 +153,86 @@ class ConnectionSession extends SessionDatabase {
       const { lastDisconnect, connection } = update;
       if (connection === "close") {
         const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+
         if (reason === DisconnectReason.badSession) {
           console.log(
             modules.color("[SYS]", "#EB6112"),
             modules.color(`Bad Session File, Please Delete [Session: ${session_name}] and Scan Again`, "#E6B0AA")
           );
+          // Hapus session dulu, lalu emit event (jangan panggil client.logout() setelah delete)
           this.deleteSession(session_name);
-          client.logout();
           return socket.emit("connection-status", { session_name, result: "Bad Session File, Please Create QR Again" });
+
         } else if (reason === DisconnectReason.connectionClosed) {
           const checked = this.getClient();
-          if (checked.isStop == false) {
+          // Perbaikan: gunakan === true/false secara eksplisit, handle undefined
+          if (checked && checked.isStop === true) {
+            await this.updateStatusSessionDB(session_name, "STOPPED");
+            console.log(modules.color("[SYS]", "#EB6112"), modules.color(`[Session: ${session_name}] Connection close Success`, "#E6B0AA"));
+            socket.emit("session-status", { session_name, status: "STOPPED" });
+          } else if (checked && checked.isStop === false) {
             console.log(
               modules.color("[SYS]", "#EB6112"),
               modules.color(`[Session: ${session_name}] Connection closed, reconnecting....`, "#E6B0AA")
             );
             this.createSession(session_name);
-          } else if (checked.isStop == true) {
+          } else {
+            // isStop undefined atau sessions kosong - update status dan jangan reconnect
+            console.log(
+              modules.color("[SYS]", "#EB6112"),
+              modules.color(`[Session: ${session_name}] Connection closed (session state unknown), not reconnecting.`, "#E6B0AA")
+            );
             await this.updateStatusSessionDB(session_name, "STOPPED");
-            console.log(modules.color("[SYS]", "#EB6112"), modules.color(`[Session: ${session_name}] Connection close Success`, "#E6B0AA"));
             socket.emit("session-status", { session_name, status: "STOPPED" });
           }
+
         } else if (reason === DisconnectReason.connectionLost) {
           console.log(
             modules.color("[SYS]", "#EB6112"),
             modules.color(`[Session: ${session_name}] Connection Lost from Server, reconnecting...`, "#E6B0AA")
           );
+          // Tambah delay sebelum reconnect untuk menghindari reconnect loop yang terlalu cepat
+          await modules.sleep(3000);
           this.createSession(session_name);
+
         } else if (reason === DisconnectReason.connectionReplaced) {
           console.log(
             modules.color("[SYS]", "#EB6112"),
             modules.color(`[Session: ${session_name}] Connection Replaced, Another New Session Opened, Please Close Current Session First`, "#E6B0AA")
           );
-          client.logout();
+          this.cleanupOldClient();
           return socket.emit("connection-status", {
             session_name,
             result: `[Session: ${session_name}] Connection Replaced, Another New Session Opened, Please Create QR Again`,
           });
+
         } else if (reason === DisconnectReason.loggedOut) {
           console.log(
             modules.color("[SYS]", "#EB6112"),
             modules.color(`Device Logged Out, Please Delete [Session: ${session_name}] and Scan Again.`, "#E6B0AA")
           );
-          client.logout();
+          this.deleteSession(session_name);
           return socket.emit("connection-status", { session_name, result: `[Session: ${session_name}] Device Logged Out, Please Create QR Again` });
+
         } else if (reason === DisconnectReason.restartRequired) {
           console.log(modules.color("[SYS]", "#EB6112"), modules.color(`[Session: ${session_name}] Restart Required, Restarting...`, "#E6B0AA"));
           this.createSession(session_name);
+
         } else if (reason === DisconnectReason.timedOut) {
           console.log(modules.color("[SYS]", "#EB6112"), modules.color(`[Session: ${session_name}] Connection TimedOut, Reconnecting...`, "#E6B0AA"));
+          // Tambah delay sebelum reconnect
+          await modules.sleep(3000);
           this.createSession(session_name);
+
         } else {
-          client.end(`Unknown DisconnectReason: ${reason}|${lastDisconnect.error}`);
+          console.log(
+            modules.color("[SYS]", "#EB6112"),
+            modules.color(`[Session: ${session_name}] Unknown DisconnectReason: ${reason}`, "#E6B0AA")
+          );
+          // Jangan panggil client.end() yang bisa throw error - cukup cleanup dan update status
+          this.cleanupOldClient();
+          await this.updateStatusSessionDB(session_name, "STOPPED");
+          socket.emit("session-status", { session_name, status: "STOPPED" });
         }
       } else if (connection == "open") {
         await this.updateStatusSessionDB(session_name, "CONNECTED");
@@ -178,6 +246,8 @@ class ConnectionSession extends SessionDatabase {
     });
 
     client.ev.on("messages.upsert", async ({ messages, type }) => {
+      // Jika client ini sudah bukan client aktif, abaikan
+      if (currentClient !== client) return;
       if (type !== "notify") return;
       const message = new Message(client, { messages, type }, session_name);
       message.mainHandler();

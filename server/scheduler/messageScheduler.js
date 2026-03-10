@@ -22,10 +22,12 @@ export function startScheduler() {
                     try {
                         const sessions = getAllSessions();
                         
-                        if (sessions && sessions.sock) {
+                        // sessions di-spread dari baileys client, jadi sendMessage ada di level atas
+                        // Juga pastikan session tidak sedang dalam keadaan stop
+                        if (sessions && sessions.sendMessage && sessions.isStop === false) {
                             const jid = msg.target.includes("@") ? msg.target : `${msg.target}@s.whatsapp.net`;
                             
-                            await sessions.sock.sendMessage(jid, { text: msg.message });
+                            await sessions.sendMessage(jid, { text: msg.message });
                             
                             await scheduledDb.updateStatus(msg.id, "sent", new Date());
                             console.log(`[Scheduler] Message sent successfully to ${msg.target}`);

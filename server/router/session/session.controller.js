@@ -37,7 +37,12 @@ class ControllerUser extends ConnectionSession {
 			let { session } = req.query;
 			if (session) {
 				const client = this.getClient();
-				if ((Object.keys(client).length === 0 && client.constructor === Object) || client.isStop == true) {
+				const isEmpty = !client || (Object.keys(client).length === 0 && client.constructor === Object);
+				const isStopped = client && client.isStop === true;
+				// Juga izinkan start jika isStop undefined (session dalam keadaan tidak stabil)
+				const isUnstable = client && Object.keys(client).length > 0 && client.isStop === undefined;
+
+				if (isEmpty || isStopped || isUnstable) {
 					if (fs.existsSync(`${this.sessionPath}/${session}`)) {
 						await this.createSession(session);
 						return res.send({ status: 200, message: `Success Start Session ${session}` });
@@ -61,16 +66,27 @@ class ControllerUser extends ConnectionSession {
 			let { session } = req.query;
 			if (session) {
 				const client = this.getClient();
-				if (client && client.isStop == false) {
+				const hasClient = client && Object.keys(client).length > 0;
+				// Gunakan strict === false agar undefined tidak lolos
+				const isActive = hasClient && client.isStop === false;
+
+				if (isActive) {
 					if (fs.existsSync(`${this.sessionPath}/${session}`)) {
 						client.isStop = true;
-						await client.ws.close();
+						try {
+							await client.ws.close();
+						} catch (wsError) {
+							// WebSocket mungkin sudah tertutup, tetap lanjutkan
+							console.log(`[SYS] WebSocket close warning: ${wsError.message}`);
+						}
 						return res.send({ status: 200, message: `Success Stopped Session ${session}` });
 					} else {
 						return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
 					}
+				} else if (!hasClient) {
+					return res.send({ status: 403, message: `Tidak ada session aktif saat ini!` });
 				} else {
-					return res.send({ status: 403, message: `Session is already stopped before!` });
+					return res.send({ status: 403, message: `Session sudah dalam keadaan berhenti!` });
 				}
 			} else {
 				res.send({ status: 400, message: "Input Data!" });
@@ -86,7 +102,7 @@ class ControllerUser extends ConnectionSession {
 		try {
 			let { session } = req.params;
 			if (session) {
-				this.deleteSession(session);
+				await this.deleteSession(session);
 				req.flash("success_msg", `Success Delete Session ${session}!`);
 				return res.redirect(endpoint);
 			} else {
