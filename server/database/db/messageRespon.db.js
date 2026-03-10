@@ -84,7 +84,6 @@ class AutoReply {
 		if (Array.isArray(array) && array.length) {
 			return array;
 		}
-		return array || [];
 	}
 
 	async editReplyMessage(session_number, keyword, newKeyword, newRespon) {

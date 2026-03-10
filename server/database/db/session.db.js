@@ -31,7 +31,6 @@ class SessionDatabase {
 		if (Array.isArray(array) && array.length !== 0) {
 			return array;
 		}
-		return array || [];
 	}
 
 	async updateStatusSessionDB(session_name, status) {
