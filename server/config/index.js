@@ -24,11 +24,9 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	// Start message scheduler
 	startScheduler();
 	
-	if (AUTO_START == "y") {
-		await new ConnectionSession().createSession(SESSION_NAME);
-	} else {
-		await new SessionDatabase().startProgram();
-	}
+	// Set all sessions to STOPPED on startup
+	await new SessionDatabase().startProgram();
+	
 	console.log(modules.color("[APP]", "#EB6112"), modules.color(moment().format("DD/MM/YY HH:mm:ss"), "#F8C471"), modules.color(`App Listening at http://localhost:${server.PORT}`, "#82E0AA"));
 });
 
