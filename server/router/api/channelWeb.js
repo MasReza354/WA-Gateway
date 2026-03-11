@@ -44,7 +44,8 @@ class ChannelWebClient {
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           ],
           executablePath: process.env.CHROME_BIN || undefined,
-          timeout: 120000
+          timeout: 180000,
+          protocolTimeout: 300000  // Increase to 5 minutes for heavy operations
         }
       });
 
@@ -154,60 +155,80 @@ class ChannelWebClient {
   }
 
   async sendToChannel(channelId, message) {
-    try {
-      if (!this.client) {
-        throw new Error('Client not initialized - Please restart and scan QR');
-      }
-
-      console.log('[CHANNEL-WEB] Waiting for client to be ready...');
-      await this.waitForReady(120000);
-      console.log('[CHANNEL-WEB] Client ready, finding channel...');
-
-      // Find the channel chat
-      const chats = await this.client.getChats();
-      console.log(`[CHANNEL-WEB] Found ${chats.length} total chats`);
-      
-      // Filter for newsletter/channel chats
-      const newsletterChats = chats.filter(chat => chat.isNewsletter);
-      console.log(`[CHANNEL-WEB] Found ${newsletterChats.length} newsletter channels`);
-      
-      if (newsletterChats.length > 0) {
-        console.log('[CHANNEL-WEB] Available channels:');
-        newsletterChats.forEach((ch, i) => {
-          console.log(`  ${i+1}. ${ch.name} (${ch.id._serialized})`);
-        });
-      }
-      
-      const channelChat = chats.find(chat => {
-        const isMatch = chat.id._serialized.includes(channelId) || 
-                       chat.name?.toLowerCase().includes('channel') ||
-                       chat.isNewsletter;
-        if (isMatch) {
-          console.log(`[CHANNEL-WEB] Found matching channel: ${chat.id._serialized}`);
+    const maxRetries = 3;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!this.client) {
+          throw new Error('Client not initialized - Please restart and scan QR');
         }
-        return isMatch;
-      });
 
-      if (!channelChat) {
-        const errorMsg = `Channel ${channelId} not found.\n\nSolutions:\n1. Make sure you FOLLOW the channel from WhatsApp mobile\n2. Or CREATE a new channel with this account\n3. Try using the numeric channel ID instead`;
-        throw new Error(errorMsg);
+        console.log(`[CHANNEL-WEB] Attempt ${attempt}/${maxRetries} - Waiting for client to be ready...`);
+        await this.waitForReady(180000);
+        console.log('[CHANNEL-WEB] Client ready, finding channel...');
+
+        // Wait a bit for WhatsApp Web to fully load
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Find the channel chat with retry
+        console.log('[CHANNEL-WEB] Fetching chats (this may take a while if you have many chats)...');
+        const startTime = Date.now();
+        
+        const chats = await this.client.getChats();
+        const fetchTime = (Date.now() - startTime) / 1000;
+        console.log(`[CHANNEL-WEB] Fetched ${chats.length} chats in ${fetchTime}s`);
+        
+        // Filter for newsletter/channel chats
+        const newsletterChats = chats.filter(chat => chat.isNewsletter);
+        console.log(`[CHANNEL-WEB] Found ${newsletterChats.length} newsletter channels`);
+        
+        if (newsletterChats.length > 0) {
+          console.log('[CHANNEL-WEB] Available channels:');
+          newsletterChats.forEach((ch, i) => {
+            console.log(`  ${i+1}. ${ch.name} (${ch.id._serialized})`);
+          });
+        }
+        
+        const channelChat = chats.find(chat => {
+          const isMatch = chat.id._serialized.includes(channelId) || 
+                         chat.name?.toLowerCase().includes('channel') ||
+                         chat.isNewsletter;
+          if (isMatch) {
+            console.log(`[CHANNEL-WEB] Found matching channel: ${chat.id._serialized}`);
+          }
+          return isMatch;
+        });
+
+        if (!channelChat) {
+          const errorMsg = `Channel ${channelId} not found.\n\nSolutions:\n1. Make sure you FOLLOW the channel from WhatsApp mobile\n2. Or CREATE a new channel with this account\n3. Try using the numeric channel ID instead\n4. Check if channel ID is correct`;
+          throw new Error(errorMsg);
+        }
+
+        // Send message to channel
+        console.log(`[CHANNEL-WEB] Sending message to ${channelChat.id._serialized}`);
+        const result = await channelChat.sendMessage(message);
+        console.log('[CHANNEL-WEB] Message sent successfully:', result.id._serialized);
+        
+        return {
+          success: true,
+          messageId: result.id._serialized,
+          timestamp: result.timestamp,
+          chatId: channelChat.id._serialized
+        };
+      } catch (error) {
+        lastError = error;
+        console.error(`[CHANNEL-WEB] Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt < maxRetries) {
+          console.log(`[CHANNEL-WEB] Retrying in 3 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
       }
-
-      // Send message to channel
-      console.log(`[CHANNEL-WEB] Sending message to ${channelChat.id._serialized}`);
-      const result = await channelChat.sendMessage(message);
-      console.log('[CHANNEL-WEB] Message sent successfully:', result.id._serialized);
-      
-      return {
-        success: true,
-        messageId: result.id._serialized,
-        timestamp: result.timestamp,
-        chatId: channelChat.id._serialized
-      };
-    } catch (error) {
-      console.error('[CHANNEL-WEB] Error sending to channel:', error);
-      throw error;
     }
+    
+    console.error('[CHANNEL-WEB] All attempts failed');
+    throw lastError;
   }
 
   async generateQR(callback) {
