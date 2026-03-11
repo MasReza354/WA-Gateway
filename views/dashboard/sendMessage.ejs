@@ -564,6 +564,43 @@ async function alertSendBulk() {
 }
 
 async function alertSendNewsletter() {
+    // Check if channel was selected from channels page
+    let preselectedChannel = null;
+    try {
+        preselectedChannel = JSON.parse(sessionStorage.getItem('selectedChannel'));
+        sessionStorage.removeItem('selectedChannel');
+    } catch (e) {}
+    
+    // Load saved channels
+    let savedChannels = [];
+    try {
+        const res = await fetch('/api/channels');
+        const data = await res.json();
+        if (data.status === 200) {
+            savedChannels = data.data || [];
+        }
+    } catch (e) {
+        console.error('Failed to load channels:', e);
+    }
+    
+    const channelsDropdown = savedChannels.length > 0 ? `
+        <div>
+            <label class="text-sm font-medium text-slate-700 mb-1 block">Pilih Saluran Tersimpan</label>
+            <select id="swal-saved-channel" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" onchange="fillChannelId(this.value)">
+                <option value="">-- Pilih saluran --</option>
+                ${savedChannels.map(c => `<option value="${c.channel_id}" ${preselectedChannel && preselectedChannel.channelId === c.channel_id ? 'selected' : ''}>${c.channel_name} (${c.channel_id})</option>`).join('')}
+            </select>
+        </div>
+        <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-slate-200"></div>
+            </div>
+            <div class="relative flex justify-center text-xs uppercase">
+                <span class="bg-white px-2 text-slate-400">Atau input manual</span>
+            </div>
+        </div>
+    ` : '';
+    
     const { value: formValues } = await Swal.fire({
         title: '<span class="material-symbols-outlined text-indigo-600 align-middle">rss_feed</span> Kirim ke Saluran WhatsApp',
         html: `
@@ -580,10 +617,11 @@ async function alertSendNewsletter() {
                         <% } %>
                     </select>
                 </div>
+                ${channelsDropdown}
                 <div>
                     <label class="text-sm font-medium text-slate-700 mb-1 block">Channel ID *</label>
-                    <input id="swal-channel-id" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="1234567890 (tanpa @newsletter)">
-                    <p class="text-xs text-slate-400 mt-1">ID saluran WhatsApp (angka saja)</p>
+                    <input id="swal-channel-id" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="0029VbCF5QNHwXbDMd2xOw0l" value="${preselectedChannel ? preselectedChannel.channelId : ''}">
+                    <p class="text-xs text-slate-400 mt-1">ID saluran WhatsApp dari link: whatsapp.com/channel/<strong>ID_INI</strong></p>
                 </div>
                 <div>
                     <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan Teks *</label>
@@ -596,6 +634,12 @@ async function alertSendNewsletter() {
         cancelButtonColor: '#64748b',
         confirmButtonText: 'Kirim ke Saluran',
         cancelButtonText: 'Batal',
+        didOpen: () => {
+            if (preselectedChannel && savedChannels.length > 0) {
+                const select = document.getElementById('swal-saved-channel');
+                if (select) select.value = preselectedChannel.channelId;
+            }
+        },
         preConfirm: () => ({
             sessions: document.getElementById('swal-newsletter-session').value,
             channelId: document.getElementById('swal-channel-id').value,
@@ -630,6 +674,12 @@ async function alertSendNewsletter() {
         } else {
             Swal.fire('Gagal', res.message, 'error');
         }
+    }
+}
+
+function fillChannelId(channelId) {
+    if (channelId) {
+        document.getElementById('swal-channel-id').value = channelId;
     }
 }
 

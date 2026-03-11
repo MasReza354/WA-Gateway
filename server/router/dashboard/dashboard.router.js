@@ -122,4 +122,11 @@ router.get("/api/qr-code/:session_name", async (req, res) => {
 	}
 });
 
+// Channel Management Page
+router.get("/channels", async (req, res) => {
+	res.render("dashboard/channels", {
+		layout: "layouts/main",
+	});
+});
+
 export default router;

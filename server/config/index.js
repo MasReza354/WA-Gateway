@@ -7,6 +7,7 @@ import ConnectionSession from "../session/Session.js";
 import App from "./App.js";
 import { connectDatabase } from "./Database.js";
 import ScheduledMessage from "../database/models/scheduledMessage.model.js";
+import Channel from "../database/models/channel.model.js";
 import { startScheduler } from "../scheduler/messageScheduler.js";
 
 const server = new App();
@@ -22,6 +23,9 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	// Sync Session table (add new columns: mode_chat, mode_channel)
 	const Session = (await import('../database/models/session.model.js')).default;
 	await Session.sync({ alter: true });
+	
+	// Sync Channel table
+	await Channel.sync({ alter: true });
 	
 	// Start message scheduler
 	startScheduler();

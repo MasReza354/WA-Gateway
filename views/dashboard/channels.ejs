@@ -1,0 +1,320 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Kelola Saluran WhatsApp</h1>
+            <p class="text-sm text-slate-500">Simpan dan kelola saluran WhatsApp Anda</p>
+        </div>
+        <button onclick="addChannel()" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Tambah Saluran
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-indigo-100">
+                <span class="material-symbols-outlined text-indigo-600">broadcast_on_home</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-slate-900" id="stat-total">0</p>
+                <p class="text-xs text-slate-500">Total Saluran</p>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-green-100">
+                <span class="material-symbols-outlined text-green-600">verified</span>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-slate-900" id="stat-active">0</p>
+                <p class="text-xs text-slate-500">Saluran Aktif</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channels Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="channels-grid">
+        <!-- Will be populated by JavaScript -->
+        <div class="col-span-full text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p class="text-slate-500 text-sm">Loading channels...</p>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden bg-white rounded-xl border-2 border-dashed border-slate-300 p-8 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+            <span class="material-symbols-outlined text-3xl text-slate-400">broadcast_on_home</span>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">Belum Ada Saluran</h3>
+        <p class="text-sm text-slate-500 mb-4">Klik tombol "Tambah Saluran" untuk menambahkan saluran WhatsApp Anda</p>
+        <button onclick="addChannel()" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm inline-flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Tambah Saluran
+        </button>
+    </div>
+</div>
+
+<script>
+let channels = [];
+
+// Load channels on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadChannels();
+});
+
+async function loadChannels() {
+    try {
+        const res = await fetch('/api/channels');
+        const data = await res.json();
+        
+        if (data.status === 200) {
+            channels = data.data || [];
+            renderChannels();
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Failed to load channels:', error);
+        Swal.fire('Error', 'Failed to load channels', 'error');
+    }
+}
+
+function renderChannels() {
+    const grid = document.getElementById('channels-grid');
+    const emptyState = document.getElementById('empty-state');
+    
+    if (channels.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+    }
+    
+    emptyState.classList.add('hidden');
+    grid.innerHTML = channels.map(channel => `
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-white text-xl">broadcast_on_home</span>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-900">${escapeHtml(channel.channel_name)}</h3>
+                            <p class="text-xs text-slate-500 font-mono">${escapeHtml(channel.channel_id)}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                ${channel.description ? `<p class="text-sm text-slate-600 mb-3 line-clamp-2">${escapeHtml(channel.description)}</p>` : ''}
+                <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
+                    <span>Session: <strong>${escapeHtml(channel.session_name)}</strong></span>
+                    <span>${formatDate(channel.createdAt)}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="copyChannelId('${escapeHtml(channel.channel_id)}')" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                        Copy ID
+                    </button>
+                    <button onclick="useChannel('${escapeHtml(channel.channel_id)}', '${escapeHtml(channel.channel_name)}')" class="py-2 px-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">send</span>
+                        Gunakan
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="editChannel(${channel.id}, '${escapeHtml(channel.channel_name)}', '${escapeHtml(channel.description || '')}')" class="py-2 px-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">edit</span>
+                        Edit
+                    </button>
+                    <button onclick="deleteChannel(${channel.id}, '${escapeHtml(channel.channel_name)}')" class="py-2 px-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        Hapus
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateStats() {
+    document.getElementById('stat-total').textContent = channels.length;
+    document.getElementById('stat-active').textContent = channels.filter(c => c.session_name).length;
+}
+
+async function addChannel() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-indigo-600 align-middle">add</span> Tambah Saluran Baru',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session *</label>
+                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <option value="">Pilih session...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Channel ID *</label>
+                    <input id="swal-channel-id" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="0029VbCF5QNHwXbDMd2xOw0l">
+                    <p class="text-xs text-slate-400 mt-1">ID dari link: whatsapp.com/channel/<strong>ID_INI</strong></p>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nama Saluran *</label>
+                    <input id="swal-channel-name" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Info Gadget">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Deskripsi (Opsional)</label>
+                    <textarea id="swal-description" rows="2" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Deskripsi saluran..."></textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        didOpen: async () => {
+            // Load sessions
+            try {
+                const res = await fetch('/api/session');
+                const data = await res.json();
+                const select = document.getElementById('swal-session');
+                if (data.data && data.data.length > 0) {
+                    select.innerHTML = data.data.map(s => 
+                        `<option value="${s.session_name}">${s.session_name} (${s.status})</option>`
+                    ).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load sessions:', e);
+            }
+        },
+        preConfirm: () => ({
+            session_name: document.getElementById('swal-session').value,
+            channel_id: document.getElementById('swal-channel-id').value.trim(),
+            channel_name: document.getElementById('swal-channel-name').value.trim(),
+            description: document.getElementById('swal-description').value.trim()
+        })
+    });
+
+    if (formValues && formValues.session_name && formValues.channel_id && formValues.channel_name) {
+        try {
+            const res = await fetch('/api/channels/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formValues)
+            });
+            
+            const data = await res.json();
+            if (data.status === 200) {
+                Swal.fire('Berhasil!', 'Saluran berhasil ditambahkan', 'success').then(() => loadChannels());
+            } else {
+                Swal.fire('Gagal', data.message, 'error');
+            }
+        } catch (error) {
+            Swal.fire('Error', 'Failed to save channel', 'error');
+        }
+    }
+}
+
+async function editChannel(id, currentName, currentDesc) {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-blue-600 align-middle">edit</span> Edit Saluran',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Nama Saluran *</label>
+                    <input id="swal-edit-name" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" value="${escapeHtml(currentName)}">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Deskripsi</label>
+                    <textarea id="swal-edit-desc" rows="2" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">${escapeHtml(currentDesc || '')}</textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Update',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({
+            channel_name: document.getElementById('swal-edit-name').value.trim(),
+            description: document.getElementById('swal-edit-desc').value.trim()
+        })
+    });
+
+    if (formValues && formValues.channel_name) {
+        try {
+            const res = await fetch('/api/channels/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, ...formValues })
+            });
+            
+            const data = await res.json();
+            if (data.status === 200) {
+                Swal.fire('Berhasil!', 'Saluran berhasil diupdate', 'success').then(() => loadChannels());
+            } else {
+                Swal.fire('Gagal', data.message, 'error');
+            }
+        } catch (error) {
+            Swal.fire('Error', 'Failed to update channel', 'error');
+        }
+    }
+}
+
+async function deleteChannel(id, name) {
+    const result = await Swal.fire({
+        title: 'Hapus Saluran?',
+        html: `Saluran <strong>${escapeHtml(name)}</strong> akan dihapus`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await fetch(`/api/channels/delete?id=${id}`);
+            const data = await res.json();
+            
+            if (data.status === 200) {
+                Swal.fire('Berhasil!', 'Saluran berhasil dihapus', 'success').then(() => loadChannels());
+            } else {
+                Swal.fire('Gagal', data.message, 'error');
+            }
+        } catch (error) {
+            Swal.fire('Error', 'Failed to delete channel', 'error');
+        }
+    }
+}
+
+function copyChannelId(channelId) {
+    navigator.clipboard.writeText(channelId);
+    Swal.fire({
+        icon: 'success',
+        title: 'Copied!',
+        text: 'Channel ID copied to clipboard',
+        timer: 1500,
+        showConfirmButton: false
+    });
+}
+
+function useChannel(channelId, channelName) {
+    // Redirect to send message page with pre-filled channel
+    sessionStorage.setItem('selectedChannel', JSON.stringify({ channelId, channelName }));
+    window.location.href = '/dashboard/send-message';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+</script>

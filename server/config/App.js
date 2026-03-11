@@ -7,6 +7,7 @@ import fileUpload from "express-fileupload";
 import routerUser from "../router/session/session.router.js";
 import routerDashboard from "../router/dashboard/dashboard.router.js";
 import routerApi from "../router/api/api.router.js";
+import routerChannel from "../router/api/channel.router.js";
 import routerAutoReply from "../router/dashboard/AutoReply/autoReply.router.js";
 import { isAuthenticated, isNotAuthenticated } from "../middleware/auth.js";
 
@@ -96,6 +97,7 @@ class App {
 		
 		// API routes - no auth required (for external integrations)
 		this.app.use("/api", routerApi);
+		this.app.use("/api", routerChannel);
 	}
 }
 
