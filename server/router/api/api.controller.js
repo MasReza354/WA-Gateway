@@ -28,12 +28,16 @@ class ControllerApi extends ConnectionSession {
 
 			if (toTarget.includes("@g.us")) {
 				var checkPhone = await client.groupMetadata(toTarget).catch((err) => console.log(err));
+			} else if (toTarget.includes("@newsletter")) {
+				var checkPhone = { id: toTarget };
 			} else {
 				var checkPhone = await client.onWhatsApp(toTarget);
 			}
-			if (!toTarget.includes("@g.us") && Array.isArray(checkPhone) && checkPhone.length) {
+			if (!toTarget.includes("@g.us") && !toTarget.includes("@newsletter") && Array.isArray(checkPhone) && checkPhone.length) {
 				return { toTarget, client };
 			} else if (toTarget.includes("@g.us") && checkPhone?.id) {
+				return { toTarget, client };
+			} else if (toTarget.includes("@newsletter")) {
 				return { toTarget, client };
 			} else {
 				res.send({ status: 403, message: `The Number/Group (${target}) is not Registered on WhatsApp` });
@@ -57,6 +61,79 @@ class ControllerApi extends ConnectionSession {
 			await new Client(client, toTarget).sendText(message);
 			await this.history.pushNewMessage(sessions, "TEXT", toTarget, message);
 			return res.send({ status: 200, message: `Success Send Message to ${target}!` });
+		} catch (error) {
+			console.log(error);
+			return res.send({ status: 500, message: "Internal Server Error" });
+		}
+	}
+
+	async sendNewsletter(req, res) {
+		try {
+			let { sessions, channelId, message } = req.body;
+			if (!sessions || !channelId || !message) {
+				return res.send({ status: 400, message: "Input All Data! (sessions, channelId, message)" });
+			}
+			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			const client = this.getClient();
+			if (!client) {
+				return res.send({ status: 403, message: `Session ${sessions} not Found` });
+			} else if (client && client.isStop == true) {
+				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
+			}
+			
+			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			
+			await client.sendMessage(channelJid, { text: message });
+			await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+			return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+		} catch (error) {
+			console.log(error);
+			return res.send({ status: 500, message: "Internal Server Error" });
+		}
+	}
+
+	async sendNewsletterMedia(req, res) {
+		try {
+			let { sessions, channelId, message, url } = req.body;
+			if (!sessions || !channelId) {
+				return res.send({ status: 400, message: "Input Session & Channel ID!" });
+			}
+			const text = message ? message : "";
+			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			const client = this.getClient();
+			if (!client) {
+				return res.send({ status: 403, message: `Session ${sessions} not Found` });
+			} else if (client && client.isStop == true) {
+				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
+			}
+			
+			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			
+			let nameRandom = helpers.randomText(10);
+			if (req.files && Object.keys(req.files).length !== 0) {
+				const file = req.files.file;
+				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
+				await file.mv(dest);
+				await new Client(client, channelJid).sendMedia(dest, text, { file });
+				await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${file.name}, Caption : ${text}`);
+				res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+				return await modules.sleep(3000).then(fs.unlinkSync(dest));
+			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
+				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
+					const buffer = await helpers.downloadAxios(url);
+					const dest = `./public/temp/${nameRandom}`;
+					fs.writeFileSync(dest, buffer.data);
+					var opts = { file: { name: nameRandom, mimetype: buffer.headers["content-type"] } };
+					await new Client(client, channelJid).sendMedia(dest, text, opts);
+					await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${url}, Caption : ${text}`);
+					res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+					return await modules.sleep(3000).then(fs.unlinkSync(dest));
+				} else {
+					return res.send({ status: 400, message: "Invalid URL!" });
+				}
+			} else {
+				return res.send({ status: 400, message: "No files were uploaded or no URL!" });
+			}
 		} catch (error) {
 			console.log(error);
 			return res.send({ status: 500, message: "Internal Server Error" });

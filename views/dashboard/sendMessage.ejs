@@ -155,6 +155,27 @@
                 </button>
             </div>
         </div>
+
+        <!-- Send Newsletter -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="p-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-indigo-100">
+                        <span class="material-symbols-outlined text-indigo-600">broadcast_on_home</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-900">Kirim ke Saluran</h3>
+                        <p class="text-xs text-slate-500">WhatsApp Channel/Newsletter</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <button onclick="alertSendNewsletter()" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">rss_feed</span>
+                    Kirim ke Saluran
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Templates -->
@@ -535,6 +556,76 @@ async function alertSendBulk() {
             html: `<div class="text-center"><p class="text-green-600 font-bold text-2xl">${success}</p><p class="text-sm text-slate-500">Berhasil terkirim</p><p class="text-red-600 font-bold text-2xl mt-2">${failed}</p><p class="text-sm text-slate-500">Gagal</p></div>`,
             icon: failed === 0 ? 'success' : 'warning'
         });
+    }
+}
+
+async function alertSendNewsletter() {
+    const { value: formValues } = await Swal.fire({
+        title: '<span class="material-symbols-outlined text-indigo-600 align-middle">rss_feed</span> Kirim ke Saluran WhatsApp',
+        html: `
+            <div class="text-left space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session *</label>
+                    <select id="swal-newsletter-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
+                        <% if (session && session.length > 0) { %>
+                            <% session.forEach(s => { %>
+                                <option value="<%= s.session_name %> (<%= s.status %>)"><%= s.session_name %> - <%= s.status %></option>
+                            <% }); %>
+                        <% } else { %>
+                            <option value="">Tidak ada session aktif</option>
+                        <% } %>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Channel ID *</label>
+                    <input id="swal-channel-id" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="1234567890 (tanpa @newsletter)">
+                    <p class="text-xs text-slate-400 mt-1">ID saluran WhatsApp (angka saja)</p>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan Teks *</label>
+                    <textarea id="swal-newsletter-message" rows="4" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Tulis pesan untuk saluran..."></textarea>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Kirim ke Saluran',
+        cancelButtonText: 'Batal',
+        preConfirm: () => ({
+            sessions: document.getElementById('swal-newsletter-session').value,
+            channelId: document.getElementById('swal-channel-id').value,
+            message: document.getElementById('swal-newsletter-message').value
+        })
+    });
+
+    if (formValues && formValues.channelId && formValues.message) {
+        if (!formValues.sessions) {
+            return Swal.fire('Error', 'Pilih session terlebih dahulu', 'error');
+        }
+
+        Swal.fire({
+            title: 'Mengirim...',
+            text: 'Mengirim pesan ke saluran WhatsApp',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const res = await fetch('/api/sendnewsletter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessions: formValues.sessions,
+                channelId: formValues.channelId,
+                message: formValues.message
+            })
+        }).then(r => r.json());
+
+        if (res.status == 200) {
+            Swal.fire('Berhasil!', res.message, 'success');
+        } else {
+            Swal.fire('Gagal', res.message, 'error');
+        }
     }
 }
 
