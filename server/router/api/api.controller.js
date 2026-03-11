@@ -20,10 +20,16 @@ class ControllerApi extends ConnectionSession {
 
   async getOrCreateChannelWebClient(sessionName) {
     if (!this.channelWebClients.has(sessionName)) {
+      console.log('[Newsletter] Creating new WhatsApp-web.js client for session:', sessionName);
       const client = new ChannelWebClient(`channel_${sessionName}`);
-      client.initialize();
-      await client.start();
       this.channelWebClients.set(sessionName, client);
+      
+      // Initialize in background (don't wait)
+      client.initialize().catch(err => {
+        console.error('[Newsletter] WhatsApp-web.js init error:', err);
+      });
+      
+      console.log('[Newsletter] WhatsApp-web.js client created - waiting for QR scan if needed');
     }
     return this.channelWebClients.get(sessionName);
   }
