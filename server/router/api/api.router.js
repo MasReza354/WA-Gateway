@@ -22,9 +22,9 @@ router.post("/sendlist", controller.sendListMessage.bind(controller));
 router.post("/sendlocation", controller.sendLocation.bind(controller));
 router.post("/sendproduct", controller.sendProduct.bind(controller));
 
-// WhatsApp Channel/Newsletter API - DISABLED
-// Note: Baileys library does not support sending messages to WhatsApp Channels
-// These endpoints return 501 Not Implemented
+// WhatsApp Channel/Newsletter API
+// Requires Baileys 7.0.0+ and user must be ADMIN of the channel
+// Note: Only TEXT messages supported, media not yet available
 router.post("/sendnewsletter", controller.sendNewsletter.bind(controller));
 router.post("/sendnewslettermedia", controller.sendNewsletterMedia.bind(controller));
 router.post("/validate-channel", controller.validateChannel.bind(controller));
