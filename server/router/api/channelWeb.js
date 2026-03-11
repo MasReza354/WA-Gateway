@@ -1,5 +1,7 @@
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
+
+const { Client, LocalAuth } = pkg;
 
 class ChannelWebClient {
   constructor(sessionName = 'channel_session') {
