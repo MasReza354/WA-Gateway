@@ -109,7 +109,16 @@
 </div>
 
 <script>
-const socket = io.connect(`<%= process.env.HOST %>`);
+// Wrap dalam try-catch untuk handle error socket connection
+(function() {
+    try {
+        const socket = io.connect(`<%= process.env.HOST || window.location.origin %>`);
+        window.chatSocket = socket;
+    } catch (e) {
+        console.warn('Socket connection failed:', e);
+    }
+})();
+
 let currentSessionName = null;
 
 // Fungsi fetch QR Code dari API
@@ -139,60 +148,62 @@ setInterval(() => {
 }, 2000);
 
 // Listen untuk QR Code dengan session_name spesifik
-socket.on(`update-qr`, (event) => {
-	currentSessionName = event.session_name;
-	document.getElementById("qr-area").classList.remove("hidden");
-	document.getElementById("qr-display").innerHTML = `
-		<div class="text-center">
-			<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
-			<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
-		</div>`;
-});
+if (window.chatSocket) {
+    window.chatSocket.on(`update-qr`, (event) => {
+        currentSessionName = event.session_name;
+        document.getElementById("qr-area").classList.remove("hidden");
+        document.getElementById("qr-display").innerHTML = `
+            <div class="text-center">
+                <img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+                <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+            </div>`;
+    });
 
-// Listener spesifik per session untuk QR code
-socket.on("qr-session_1", (event) => {
-	currentSessionName = event.session_name;
-	document.getElementById("qr-area").classList.remove("hidden");
-	document.getElementById("qr-display").innerHTML = `
-		<div class="text-center">
-			<p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
-			<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
-			<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
-		</div>`;
-});
+    // Listener spesifik per session untuk QR code
+    window.chatSocket.on("qr-session_1", (event) => {
+        currentSessionName = event.session_name;
+        document.getElementById("qr-area").classList.remove("hidden");
+        document.getElementById("qr-display").innerHTML = `
+            <div class="text-center">
+                <p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+                <img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+                <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+            </div>`;
+    });
 
-socket.on("logger", (event) => {
-	currentSessionName = null;
-	document.getElementById("qr-area").classList.add("hidden");
-	Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
-});
+    window.chatSocket.on("logger", (event) => {
+        currentSessionName = null;
+        document.getElementById("qr-area").classList.add("hidden");
+        Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
+    });
 
-socket.on("session-status", (event) => {
-    const statusBadge = document.querySelector(`[data-session="${event.session_name}"] .status-badge`);
-    if (statusBadge) {
-        statusBadge.textContent = event.status;
-        statusBadge.className = `status-badge px-2 py-1 text-xs font-medium rounded-full ${event.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
-    }
-    
-    const buttonContainer = document.querySelector(`[data-session="${event.session_name}"] .button-container`);
-    if (buttonContainer) {
-        if (event.status === "CONNECTED") {
-            buttonContainer.innerHTML = `
-                <button onclick="stopSession('${event.session_name}')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">stop_circle</span>
-                    Stop
-                </button>`;
-        } else {
-            buttonContainer.innerHTML = `
-                <button onclick="startSession('${event.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">play_circle</span>
-                    Start
-                </button>`;
+    window.chatSocket.on("session-status", (event) => {
+        const statusBadge = document.querySelector(`[data-session="${event.session_name}"] .status-badge`);
+        if (statusBadge) {
+            statusBadge.textContent = event.status;
+            statusBadge.className = `status-badge px-2 py-1 text-xs font-medium rounded-full ${event.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
         }
-    }
-    
-    updateStats();
-});
+        
+        const buttonContainer = document.querySelector(`[data-session="${event.session_name}"] .button-container`);
+        if (buttonContainer) {
+            if (event.status === "CONNECTED") {
+                buttonContainer.innerHTML = `
+                    <button onclick="stopSession('${event.session_name}')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+                        Stop
+                    </button>`;
+            } else {
+                buttonContainer.innerHTML = `
+                    <button onclick="startSession('${event.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                        Start
+                    </button>`;
+            }
+        }
+        
+        updateStats();
+    });
+}
 
 // Polling untuk sync status setiap 5 detik
 setInterval(async () => {
