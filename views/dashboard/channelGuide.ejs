@@ -1,0 +1,234 @@
+<div class="max-w-5xl mx-auto flex flex-col gap-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="p-3 bg-white/20 rounded-xl">
+                <span class="material-symbols-outlined text-3xl">broadcast_on_home</span>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold">WhatsApp Channel Guide</h1>
+                <p class="text-sm text-white/80">Panduan lengkap menghubungkan Saluran WhatsApp dengan WA Gateway</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Important Notice -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-amber-600">info</span>
+            <div>
+                <h3 class="font-semibold text-amber-800 mb-1">Penting untuk Dipahami!</h3>
+                <ul class="text-sm text-amber-700 space-y-1">
+                    <li>• WhatsApp Channel <strong>tidak bisa dibuat</strong> melalui WA Gateway/Baileys</li>
+                    <li>• Channel harus dibuat terlebih dahulu melalui aplikasi WhatsApp Mobile</li>
+                    <li>• WA Gateway hanya bisa mengirim pesan ke channel yang sudah ada</li>
+                    <li>• Akun WhatsApp yang connected di session harus menjadi <strong>Admin</strong> channel</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step by Step Guide -->
+    <div class="space-y-4">
+        <h2 class="text-xl font-bold text-slate-900">Langkah-langkah Menghubungkan Channel</h2>
+
+        <!-- Step 1 -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">1</div>
+                    <h3 class="font-semibold text-slate-900">Buat Channel WhatsApp</h3>
+                </div>
+            </div>
+            <div class="p-4">
+                <ol class="space-y-2 text-sm text-slate-700">
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Buka aplikasi WhatsApp di HP Anda</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Pergi ke tab <strong>Updates</strong> (Pembaruan)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Klik tanda <strong>+</strong> di sebelah "Channels"</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Pilih <strong>"Create Channel"</strong> (Buat Channel)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Ikuti petunjuk untuk membuat channel (nama, deskripsi, foto)</span>
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">2</div>
+                    <h3 class="font-semibold text-slate-900">Dapatkan Channel ID</h3>
+                </div>
+            </div>
+            <div class="p-4">
+                <ol class="space-y-2 text-sm text-slate-700">
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Buka channel yang sudah dibuat</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Klik nama channel di bagian atas untuk melihat info</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Gulir ke bawah dan pilih <strong>"Share channel"</strong></span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Salin link channel (contoh: <code class="bg-slate-100 px-2 py-1 rounded">https://whatsapp.com/channel/0029VbJhLKU789ABCdefGHI</code>)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span><strong>Channel ID</strong> adalah angka setelah <code class="bg-slate-100 px-2 py-1 rounded">/channel/</code></span>
+                    </li>
+                </ol>
+                <div class="mt-3 p-3 bg-slate-100 rounded-lg">
+                    <p class="text-xs text-slate-600 mb-1">Contoh:</p>
+                    <p class="text-sm font-mono">Link: https://whatsapp.com/channel/<strong class="text-indigo-600">0029VbJhLKU789ABCdefGHI</strong></p>
+                    <p class="text-sm mt-1">Channel ID: <strong class="text-indigo-600">0029VbJhLKU789ABCdefGHI</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">3</div>
+                    <h3 class="font-semibold text-slate-900">Connect WhatsApp Account</h3>
+                </div>
+            </div>
+            <div class="p-4">
+                <ol class="space-y-2 text-sm text-slate-700">
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Pastikan akun WhatsApp yang membuat channel sudah di-connect ke WA Gateway</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Scan QR Code di dashboard untuk menghubungkan akun WhatsApp</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Status session harus <strong>CONNECTED</strong></span>
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">4</div>
+                    <h3 class="font-semibold text-slate-900">Kirim Pesan ke Channel</h3>
+                </div>
+            </div>
+            <div class="p-4">
+                <ol class="space-y-2 text-sm text-slate-700">
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Pergi ke menu <strong>"Kirim Pesan"</strong></span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Klik card <strong>"Kirim ke Saluran"</strong></span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Isi form:</span>
+                        <ul class="ml-6 mt-1 space-y-1">
+                            <li>- Session: Pilih session yang connected</li>
+                            <li>- Channel ID: Masukkan ID channel (tanpa @newsletter)</li>
+                            <li>- Pesan: Tulis pesan yang ingin dikirim</li>
+                        </ul>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-indigo-600 font-bold">•</span>
+                        <span>Klik <strong>"Kirim ke Saluran"</strong></span>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Usage -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 bg-slate-50">
+            <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-600">api</span>
+                Penggunaan via API
+            </h3>
+        </div>
+        <div class="p-4">
+            <p class="text-sm text-slate-700 mb-3">Anda juga bisa mengirim pesan ke channel menggunakan API:</p>
+            
+            <div class="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto font-mono">
+POST /api/sendnewsletter
+Content-Type: application/json
+
+{
+    "sessions": "session_1",
+    "channelId": "0029VbJhLKU789ABCdefGHI",
+    "message": "Hello dari WA Gateway!"
+}
+            </div>
+
+            <div class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <p class="text-sm text-indigo-800">
+                    <strong>Response:</strong><br>
+                    <code class="font-mono">{ "status": 200, "message": "Success Send Message to Channel 0029VbJhLKU789ABCdefGHI!" }</code>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <h3 class="font-semibold text-red-800 mb-3 flex items-center gap-2">
+            <span class="material-symbols-outlined">error</span>
+            Troubleshooting
+        </h3>
+        <div class="space-y-2 text-sm text-red-700">
+            <p><strong>Problem:</strong> "Session is Stopped"</p>
+            <p class="ml-4">→ Start session terlebih dahulu dari dashboard</p>
+            
+            <p class="mt-3"><strong>Problem:</strong> "Session not Found"</p>
+            <p class="ml-4">→ Pastikan session sudah dibuat dan connected</p>
+            
+            <p class="mt-3"><strong>Problem:</strong> Pesan tidak terkirim ke channel</p>
+            <p class="ml-4">→ Pastikan akun WhatsApp adalah admin channel tersebut</p>
+            <p class="ml-4">→ Cek kembali Channel ID (harus persis sama)</p>
+            
+            <p class="mt-3"><strong>Problem:</strong> "Channel not found"</p>
+            <p class="ml-4">→ Channel ID salah atau channel sudah dihapus</p>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="flex gap-3">
+        <a href="/dashboard/send-message" class="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined">send</span>
+            Kirim ke Saluran
+        </a>
+        <a href="/dashboard" class="py-3 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Kembali
+        </a>
+    </div>
+</div>

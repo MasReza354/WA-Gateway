@@ -77,6 +77,13 @@ router.get("/sessions", async (req, res) => {
 	});
 });
 
+// WhatsApp Channel Guide
+router.get("/channel-guide", (req, res) => {
+	res.render("dashboard/channelGuide", {
+		layout: "layouts/main",
+	});
+});
+
 // API: Get real-time session status
 router.get("/api/session-status", async (req, res) => {
 	try {
