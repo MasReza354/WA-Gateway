@@ -125,6 +125,36 @@
                                 <%= session.status %>
                             </p>
                         </div>
+                        
+                        <!-- Session Mode Toggles -->
+                        <div class="bg-slate-50 rounded-lg p-3 space-y-2">
+                            <p class="text-xs font-semibold text-slate-600 mb-2">MODE SESSION</p>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm text-blue-600">chat</span>
+                                    <span class="text-xs text-slate-700">Chat Biasa</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleChatMode" class="sr-only peer" 
+                                        <%= session.mode_chat !== false ? 'checked' : '' %> 
+                                        onchange="updateSessionMode('chat', this.checked)">
+                                    <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm text-indigo-600">broadcast_on_home</span>
+                                    <span class="text-xs text-slate-700">Saluran WhatsApp</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleChannelMode" class="sr-only peer" 
+                                        <%= session.mode_channel !== false ? 'checked' : '' %> 
+                                        onchange="updateSessionMode('channel', this.checked)">
+                                    <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
                         <div id="buttonSession" class="flex flex-col gap-2">
                             <% if (session.status == 'CONNECTED') { %>
                             <button onclick="alertStopSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
@@ -390,6 +420,58 @@ socket.on("session-created", (event) => {
     // Refresh halaman untuk update session list
     setTimeout(() => location.reload(), 500);
 });
+
+async function updateSessionMode(type, enabled) {
+    const sessionName = await getSessionName();
+    if (!sessionName) {
+        Swal.fire('Error', 'Session not found!', 'error');
+        return;
+    }
+    
+    const isChat = type === 'chat';
+    const modeData = isChat 
+        ? { mode_chat: enabled, mode_channel: document.getElementById('toggleChannelMode').checked }
+        : { mode_chat: document.getElementById('toggleChatMode').checked, mode_channel: enabled };
+    
+    try {
+        const res = await fetch('/session/update-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session: sessionName,
+                ...modeData
+            })
+        });
+        
+        const data = await res.json();
+        if (data.status === 200) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Mode Updated',
+                text: `${isChat ? 'Chat' : 'Channel'} mode ${enabled ? 'ENABLED' : 'DISABLED'}`,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+            // Restore toggle state
+            if (isChat) {
+                document.getElementById('toggleChatMode').checked = !enabled;
+            } else {
+                document.getElementById('toggleChannelMode').checked = !enabled;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to update mode:', error);
+        Swal.fire('Error', 'Failed to update mode', 'error');
+        // Restore toggle state
+        if (isChat) {
+            document.getElementById('toggleChatMode').checked = !enabled;
+        } else {
+            document.getElementById('toggleChannelMode').checked = !enabled;
+        }
+    }
+}
 
 function updateStatStatus(status) {
     const statStatusEl = document.getElementById("stat-status");

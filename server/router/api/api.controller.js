@@ -7,11 +7,37 @@ import ConnectionSession from "../../session/Session.js";
 import { ButtonResponse, ListResponse } from "../../database/db/messageRespon.db.js";
 import HistoryMessage from "../../database/db/history.db.js";
 import History from "../../database/models/history.model.js";
+import SessionDatabase from "../../database/db/session.db.js";
 
 class ControllerApi extends ConnectionSession {
 	constructor() {
 		super();
 		this.history = new HistoryMessage();
+		this.sessionDb = new SessionDatabase();
+	}
+
+	async checkSessionMode(req, res, sessions, isChannel = false) {
+		try {
+			const sessionName = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			const session = await this.sessionDb.findOneSessionDB(sessionName);
+			
+			if (!session) {
+				return { valid: false, message: `Session ${sessionName} not found` };
+			}
+			
+			if (isChannel && !session.mode_channel) {
+				return { valid: false, message: `Channel mode is DISABLED for session ${sessionName}` };
+			}
+			
+			if (!isChannel && !session.mode_chat) {
+				return { valid: false, message: `Chat mode is DISABLED for session ${sessionName}` };
+			}
+			
+			return { valid: true };
+		} catch (error) {
+			console.log(error);
+			return { valid: false, message: "Internal Server Error" };
+		}
 	}
 
 	async clientValidator(req, res, sessions, target) {
@@ -56,6 +82,13 @@ class ControllerApi extends ConnectionSession {
 				return res.send({ status: 400, message: "Input All Data!" });
 			}
 			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			
+			// Check session mode
+			const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+			if (!modeCheck.valid) {
+				return res.send({ status: 403, message: modeCheck.message });
+			}
+			
 			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
 			if (!client || !toTarget) return;
 			await new Client(client, toTarget).sendText(message);
@@ -74,6 +107,13 @@ class ControllerApi extends ConnectionSession {
 				return res.send({ status: 400, message: "Input All Data! (sessions, channelId, message)" });
 			}
 			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			
+			// Check session mode
+			const modeCheck = await this.checkSessionMode(req, res, sessions, true);
+			if (!modeCheck.valid) {
+				return res.send({ status: 403, message: modeCheck.message });
+			}
+			
 			const client = this.getClient();
 			if (!client) {
 				return res.send({ status: 403, message: `Session ${sessions} not Found` });

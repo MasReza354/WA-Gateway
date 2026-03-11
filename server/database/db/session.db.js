@@ -7,7 +7,22 @@ class SessionDatabase {
 
 	async createSessionDB(session_name, session_number) {
 		console.log(session_name, session_number);
-		await this.session.create({ session_name, session_number, status: "CONNECTED" });
+		await this.session.create({ 
+			session_name, 
+			session_number, 
+			status: "CONNECTED",
+			mode_chat: true,
+			mode_channel: true
+		});
+	}
+
+	async updateSessionMode(session_name, mode_chat, mode_channel) {
+		const sesi = await this.session.findOne({ where: { session_name } });
+		if (sesi) {
+			await sesi.update({ mode_chat, mode_channel });
+			return true;
+		}
+		return false;
 	}
 
 	async deleteSessionDB(session_name) {

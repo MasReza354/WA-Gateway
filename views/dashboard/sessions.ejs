@@ -58,12 +58,50 @@
                                 <p class="text-sm text-slate-500"><%= session.session_number || 'Belum terhubung' %></p>
                             </div>
                         </div>
-                        <span class="status-badge px-2 py-1 text-xs font-medium rounded-full <%= session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' %>">
-                            <%= session.status %>
-                        </span>
+                        <div class="text-right">
+                            <span class="status-badge px-2 py-1 text-xs font-medium rounded-full <%= session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' %>">
+                                <%= session.status %>
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <div class="p-4 space-y-2 button-container">
+                
+                <!-- Session Mode Toggles -->
+                <div class="px-4 pb-3">
+                    <div class="bg-slate-50 rounded-lg p-3 space-y-2">
+                        <p class="text-xs font-semibold text-slate-600 mb-2">MODE SESSION</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm text-blue-600">chat</span>
+                                <span class="text-xs text-slate-700">Chat Biasa</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" 
+                                    class="sr-only peer toggle-chat-mode" 
+                                    data-session="<%= session.session_name %>"
+                                    <%= session.mode_chat !== false ? 'checked' : '' %> 
+                                    onchange="updateSessionMode('<%= session.session_name %>', 'chat', this.checked)">
+                                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm text-indigo-600">broadcast_on_home</span>
+                                <span class="text-xs text-slate-700">Saluran WhatsApp</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" 
+                                    class="sr-only peer toggle-channel-mode" 
+                                    data-session="<%= session.session_name %>"
+                                    <%= session.mode_channel !== false ? 'checked' : '' %> 
+                                    onchange="updateSessionMode('<%= session.session_name %>', 'channel', this.checked)">
+                                <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4 pt-0 space-y-2 button-container">
                     <% if (session.status === 'CONNECTED') { %>
                     <button onclick="stopSession('<%= session.session_name %>')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-[18px]">stop_circle</span>
@@ -293,6 +331,57 @@ async function createNewSession() {
         form.appendChild(input);
         document.body.appendChild(form);
         form.submit();
+    }
+}
+
+// Fallback: attach event listener langsung ke button
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.querySelector('button[onclick="createNewSession()"]');
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            createNewSession();
+        });
+        }
+    });
+}
+
+async function updateSessionMode(sessionName, type, enabled) {
+    const modeData = type === 'chat' 
+        ? { mode_chat: enabled, mode_channel: document.querySelector(`.toggle-channel-mode[data-session="${sessionName}"]`).checked }
+        : { mode_chat: document.querySelector(`.toggle-chat-mode[data-session="${sessionName}"]`).checked, mode_channel: enabled };
+    
+    try {
+        const res = await fetch('/session/update-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session: sessionName,
+                ...modeData
+            })
+        });
+        
+        const data = await res.json();
+        if (data.status === 200) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Mode Updated',
+                text: `${type === 'chat' ? 'Chat' : 'Channel'} mode ${enabled ? 'ENABLED' : 'DISABLED'}`,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+            // Restore toggle state
+            const selector = type === 'chat' ? '.toggle-chat-mode' : '.toggle-channel-mode';
+            document.querySelector(`${selector}[data-session="${sessionName}"]`).checked = !enabled;
+        }
+    } catch (error) {
+        console.error('Failed to update mode:', error);
+        Swal.fire('Error', 'Failed to update mode', 'error');
+        // Restore toggle state
+        const selector = type === 'chat' ? '.toggle-chat-mode' : '.toggle-channel-mode';
+        document.querySelector(`${selector}[data-session="${sessionName}"]`).checked = !enabled;
     }
 }
 

@@ -97,24 +97,52 @@ class ControllerUser extends ConnectionSession {
 		}
 	}
 
-	async deleteUserSession(req, res) {
-		let endpoint = "/dashboard";
-		try {
-			let { session } = req.params;
-			if (session) {
-				await this.deleteSession(session, true);
-				req.flash("success_msg", `Success Delete Session ${session}!`);
-				return res.redirect(endpoint);
-			} else {
-				req.flash("error_msg", `Input Data`);
-				return res.redirect(endpoint);
-			}
-		} catch (error) {
-			console.log(error);
-			req.flash("error_msg", `Something Wrong`);
-			return res.redirect(endpoint);
-		}
-	}
+  async deleteUserSession(req, res) {
+    let endpoint = "/dashboard";
+    try {
+      let { session } = req.params;
+      if (session) {
+        await this.deleteSession(session, true);
+        req.flash("success_msg", `Success Delete Session ${session}!`);
+        return res.redirect(endpoint);
+      } else {
+        req.flash("error_msg", `Input Data`);
+        return res.redirect(endpoint);
+      }
+    } catch (error) {
+      console.log(error);
+      req.flash("error_msg", `Something Wrong`);
+      return res.redirect(endpoint);
+    }
+  }
+
+  async updateSessionMode(req, res) {
+    try {
+      let { session, mode_chat, mode_channel } = req.body;
+      if (!session) {
+        return res.send({ status: 400, message: "Session required!" });
+      }
+      
+      const chatMode = mode_chat === true || mode_chat === "true" || mode_chat === "on";
+      const channelMode = mode_channel === true || mode_channel === "true" || mode_channel === "on";
+      
+      const db = new (await import('../../database/db/session.db.js')).default();
+      const updated = await db.updateSessionMode(session, chatMode, channelMode);
+      
+      if (updated) {
+        return res.send({ 
+          status: 200, 
+          message: "Session mode updated",
+          data: { mode_chat: chatMode, mode_channel: channelMode }
+        });
+      } else {
+        return res.send({ status: 404, message: "Session not found!" });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
 }
 
 export default ControllerUser;
