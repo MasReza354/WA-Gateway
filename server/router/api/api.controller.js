@@ -158,27 +158,48 @@ class ControllerApi extends ConnectionSession {
 					
 					// Method 3: Try sendNode (low-level)
 					try {
-						console.log('[Method 3] Trying sendNode...');
+						console.log('[Method 3] Trying sendNode with proper channel format...');
 						if (typeof client.sendNode === 'function') {
+							const messageTag = client.generateMessageTag();
+							console.log('[Method 3] Message tag:', messageTag);
+							
+							// Try with proper newsletter broadcast format
 							result = await Promise.race([
 								client.sendNode({
-									tag: 'message',
+									tag: 'iq',
 									attrs: {
 										to: channelJid,
-										type: 'text',
-										id: client.generateMessageTag()
+										type: 'set',
+										id: messageTag,
+										xmlns: 'w:m'
 									},
 									content: [{
-										tag: 'text',
-										attrs: {},
-										content: message
+										tag: 'message',
+										attrs: {
+											type: 'text',
+											t: Date.now().toString()
+										},
+										content: [{
+											tag: 'text',
+											attrs: {},
+											content: message
+										}]
 									}]
 								}),
 								new Promise((_, reject) => 
 									setTimeout(() => reject(new Error('Timeout 10s')), 10000)
 								)
 							]);
-							console.log('[Method 3] SUCCESS!');
+							
+							console.log('[Method 3] sendNode response:', JSON.stringify(result, null, 2));
+							
+							// Check if result has proper acknowledgment
+							if (result && (result.attrs?.type === 'result' || result.id)) {
+								console.log('[Method 3] Message acknowledged by server!');
+							} else {
+								console.log('[Method 3] WARNING: No proper acknowledgment from server');
+								throw new Error('SendNode returned response but no acknowledgment');
+							}
 						} else {
 							throw new Error('sendNode not available');
 						}
@@ -725,6 +746,101 @@ class ControllerApi extends ConnectionSession {
 			});
 		} catch (error) {
 			console.log('[DEBUG] Error:', error);
+			return res.send({ status: 500, message: error.message });
+		}
+	}
+
+	async testChannelSend(req, res) {
+		try {
+			const { sessions, channelId, message, method } = req.body;
+			
+			if (!sessions || !channelId || !message) {
+				return res.send({ status: 400, message: "Sessions, channelId, and message required!" });
+			}
+			
+			const client = this.getClient();
+			if (!client) {
+				return res.send({ status: 403, message: `Session ${sessions} not Found` });
+			}
+			
+			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			const testMethod = method || 'all';
+			let result = null;
+			
+			// Test specific method or all
+			if (testMethod === '1' || testMethod === 'all') {
+				console.log('[TEST] Method 1: sendMessage');
+				try {
+					result = await Promise.race([
+						client.sendMessage(channelJid, { text: message }),
+						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
+					]);
+					return res.send({ status: 200, method: 'sendMessage', success: true, result });
+				} catch (e) {
+					console.log('[TEST] Method 1 failed:', e.message);
+					if (testMethod === '1') {
+						return res.send({ status: 408, method: 'sendMessage', success: false, error: e.message });
+					}
+				}
+			}
+			
+			if (testMethod === '2' || testMethod === 'all') {
+				console.log('[TEST] Method 2: sendNode simple');
+				try {
+					result = await Promise.race([
+						client.sendNode({
+							tag: 'message',
+							attrs: { to: channelJid, type: 'text', id: client.generateMessageTag() },
+							content: [{ tag: 'text', attrs: {}, content: message }]
+						}),
+						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
+					]);
+					return res.send({ status: 200, method: 'sendNode-simple', success: true, result: JSON.stringify(result) });
+				} catch (e) {
+					console.log('[TEST] Method 2 failed:', e.message);
+					if (testMethod === '2') {
+						return res.send({ status: 408, method: 'sendNode-simple', success: false, error: e.message });
+					}
+				}
+			}
+			
+			if (testMethod === '3' || testMethod === 'all') {
+				console.log('[TEST] Method 3: sendNode with iq wrapper');
+				try {
+					result = await Promise.race([
+						client.sendNode({
+							tag: 'iq',
+							attrs: {
+								to: channelJid,
+								type: 'set',
+								id: client.generateMessageTag(),
+								xmlns: 'w:m'
+							},
+							content: [{
+								tag: 'message',
+								attrs: { type: 'text', t: Date.now().toString() },
+								content: [{ tag: 'text', attrs: {}, content: message }]
+							}]
+						}),
+						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
+					]);
+					return res.send({ status: 200, method: 'sendNode-iq', success: true, result: JSON.stringify(result) });
+				} catch (e) {
+					console.log('[TEST] Method 3 failed:', e.message);
+					if (testMethod === '3') {
+						return res.send({ status: 408, method: 'sendNode-iq', success: false, error: e.message });
+					}
+				}
+			}
+			
+			return res.send({ 
+				status: 408, 
+				message: 'All methods failed',
+				tests: 'Try individual methods with method: "1", "2", or "3"'
+			});
+			
+		} catch (error) {
+			console.log('[TEST] Error:', error);
 			return res.send({ status: 500, message: error.message });
 		}
 	}
