@@ -133,33 +133,57 @@ class ControllerApi extends ConnectionSession {
 			console.log(`[Newsletter] Message: ${message}`);
 			console.log(`[Newsletter] User: ${client.user?.id}`);
 			
-			// Step 1: Try to follow the channel first
+			// List available methods to try
+			const methods = [];
+			
+			// Method 1: Direct sendMessage
 			try {
-				console.log(`[Newsletter] Following channel...`);
-				await client.newsletterFollow(channelJid);
-				console.log(`[Newsletter] Follow success`);
-			} catch (followError) {
-				console.log(`[Newsletter] Follow error (might already following):`, followError.message);
+				console.log(`[Newsletter] Method 1: sendMessage...`);
+				const result = await client.sendMessage(channelJid, { text: message });
+				console.log(`[Newsletter] Method 1 result:`, JSON.stringify(result?.key, null, 2));
+				if (result?.key?.id) {
+					methods.push({ method: 'sendMessage', success: true, id: result.key.id });
+				}
+			} catch (e) {
+				console.log(`[Newsletter] Method 1 failed:`, e.message);
+				methods.push({ method: 'sendMessage', success: false, error: e.message });
 			}
 			
-			// Step 2: Send message
-			console.log(`[Newsletter] Sending message...`);
-			const result = await client.sendMessage(channelJid, { text: message });
-			console.log(`[Newsletter] Send result:`, JSON.stringify(result?.key, null, 2));
+			// Method 2: Try with conversation format
+			try {
+				console.log(`[Newsletter] Method 2: sendMessage with conversation...`);
+				const msgId = `3EB0${Date.now().toString(36).toUpperCase()}`;
+				const result = await client.sendMessage(channelJid, { 
+					conversation: message 
+				}, { 
+					messageId: msgId 
+				});
+				console.log(`[Newsletter] Method 2 result:`, JSON.stringify(result?.key, null, 2));
+				if (result?.key?.id) {
+					methods.push({ method: 'conversation', success: true, id: result.key.id });
+				}
+			} catch (e) {
+				console.log(`[Newsletter] Method 2 failed:`, e.message);
+				methods.push({ method: 'conversation', success: false, error: e.message });
+			}
 			
 			console.log(`[Newsletter] ========== END ==========\n`);
 			
-			if (result?.key?.id) {
+			const successMethod = methods.find(m => m.success);
+			
+			if (successMethod) {
 				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
 				return res.send({ 
 					status: 200, 
-					message: `Pesan terkirim!\n\nMessage ID: ${result.key.id}\n\nJIKA PESAN TIDAK MUNCUL:\n1. Pastikan Channel ID benar\n2. Coba buat channel BARU dengan akun ini dan test ke channel baru\n3. Kemungkinan limitasi Baileys - tidak semua channel bisa diakses`,
-					messageId: result.key.id
+					message: `Pesan terkirim via ${successMethod.method}!\n\nMessage ID: ${successMethod.id}\n\n⚠️ PENTING:\nJika pesan TIDAK MUNCUL di channel, ini adalah LIMITASI Baileys.\n\nBaileys berhasil mengirim request ke WhatsApp, tapi WhatsApp tidak mempublish pesan ke channel.\n\nKemungkinan penyebab:\n1. Channel ID format salah (coba format numeric)\n2. Akun tidak terdaftar sebagai admin\n3. Baileys memang belum full support untuk channel`,
+					messageId: successMethod.id,
+					methods_tried: methods
 				});
 			} else {
 				return res.send({ 
 					status: 500, 
-					message: `Gagal mengirim`
+					message: `Semua method gagal`,
+					methods_tried: methods
 				});
 			}
 		} catch (error) {
