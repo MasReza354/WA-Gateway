@@ -133,35 +133,19 @@ class ControllerApi extends ConnectionSession {
 			console.log(`[Newsletter] Message: ${message}`);
 			console.log(`[Newsletter] User: ${client.user?.id}`);
 			
-			// Verify newsletter metadata first
+			// Step 1: Try to follow the channel first
 			try {
-				console.log(`[Newsletter] Fetching channel metadata...`);
-				const metadata = await client.newsletterMetadata("jid", channelJid);
-				console.log(`[Newsletter] Metadata:`, JSON.stringify(metadata, null, 2));
-				
-				if (metadata?.view_type === "PRIVATE" && !metadata?.viewer_metadata?.role) {
-					return res.send({ 
-						status: 403, 
-						message: `Anda TIDAK memiliki akses ke channel ini.\n\nChannel ini private dan Anda bukan member.`
-					});
-				}
-			} catch (metaError) {
-				console.log(`[Newsletter] Metadata error:`, metaError.message);
+				console.log(`[Newsletter] Following channel...`);
+				await client.newsletterFollow(channelJid);
+				console.log(`[Newsletter] Follow success`);
+			} catch (followError) {
+				console.log(`[Newsletter] Follow error (might already following):`, followError.message);
 			}
 			
-			// Try to get admin count
-			try {
-				console.log(`[Newsletter] Checking admin count...`);
-				const adminCount = await client.newsletterAdminCount(channelJid);
-				console.log(`[Newsletter] Admin count:`, adminCount);
-			} catch (adminError) {
-				console.log(`[Newsletter] Admin check error:`, adminError.message);
-			}
-			
-			// Send message
+			// Step 2: Send message
 			console.log(`[Newsletter] Sending message...`);
 			const result = await client.sendMessage(channelJid, { text: message });
-			console.log(`[Newsletter] Send result:`, JSON.stringify(result, null, 2));
+			console.log(`[Newsletter] Send result:`, JSON.stringify(result?.key, null, 2));
 			
 			console.log(`[Newsletter] ========== END ==========\n`);
 			
@@ -169,22 +153,20 @@ class ControllerApi extends ConnectionSession {
 				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
 				return res.send({ 
 					status: 200, 
-					message: `Message sent!\n\nID: ${result.key.id}\nStatus: ${result.status}\n\nCek channel dalam 1-2 menit. Jika tidak muncul, mungkin ada limitasi dari Baileys.`,
-					messageId: result.key.id,
-					status_code: result.status
+					message: `Pesan terkirim!\n\nMessage ID: ${result.key.id}\n\nJIKA PESAN TIDAK MUNCUL:\n1. Pastikan Channel ID benar\n2. Coba buat channel BARU dengan akun ini dan test ke channel baru\n3. Kemungkinan limitasi Baileys - tidak semua channel bisa diakses`,
+					messageId: result.key.id
 				});
 			} else {
 				return res.send({ 
 					status: 500, 
-					message: `Gagal mengirim - tidak ada response valid dari server`
+					message: `Gagal mengirim`
 				});
 			}
 		} catch (error) {
 			console.log('[Newsletter] ERROR:', error);
 			return res.send({ 
 				status: 500, 
-				message: `Error: ${error.message}`,
-				stack: error.stack?.split('\n').slice(0, 5).join('\n')
+				message: `Error: ${error.message}`
 			});
 		}
 	}
