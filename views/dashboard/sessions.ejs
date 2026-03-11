@@ -261,7 +261,14 @@ async function createNewSession() {
         cancelButtonColor: '#64748b',
         confirmButtonText: 'Buat',
         cancelButtonText: 'Batal',
-        preConfirm: () => document.getElementById('swal-session-name').value
+        preConfirm: () => {
+            const name = document.getElementById('swal-session-name').value;
+            if (!name) {
+                Swal.showValidationMessage('Nama session wajib diisi');
+                return false;
+            }
+            return name;
+        }
     });
 
     if (sessionName) {
@@ -277,6 +284,17 @@ async function createNewSession() {
         form.submit();
     }
 }
+
+// Fallback: attach event listener langsung ke button
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.querySelector('button[onclick="createNewSession()"]');
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            createNewSession();
+        });
+    }
+});
 
 async function startSession(sessionName) {
 	currentSessionName = sessionName;
