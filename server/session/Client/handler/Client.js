@@ -1,8 +1,6 @@
-import pkg, { downloadContentFromMessage, toBuffer } from "@whiskeysockets/baileys";
+import { downloadContentFromMessage, toBuffer, generateThumbnail, generateWAMessageFromContent, prepareWAMessageMedia, proto } from "@whiskeysockets/baileys";
 import axios from "axios";
 import fs from "fs";
-
-const { generateThumbnail, generateWAMessageFromContent, prepareWAMessageMedia, proto } = pkg;
 
 class Client {
   constructor(client, target) {
@@ -13,6 +11,10 @@ class Client {
   async sendText(text) {
     const mentions = [...text.matchAll(/@(\d{0,16})/g)].map((v) => v[1] + "@s.whatsapp.net");
     return await this.client.sendMessage(this.from, { text, mentions });
+  }
+
+  async sendNewsletterText(text) {
+    return await this.client.sendMessage(this.from, { text });
   }
 
   async reply(text, quoted) {

@@ -100,16 +100,55 @@ class ControllerApi extends ConnectionSession {
 	}
 
 	async sendNewsletter(req, res) {
-		return res.send({ 
-			status: 501, 
-			message: `⚠️ FITUR TIDAK TERSEDIA\n\nMaaf, mengirim pesan ke Channel WhatsApp TIDAK dapat dilakukan melalui WA Gateway.\n\nAlasan:\n• Baileys library (yang digunakan WA Gateway) belum support pengiriman pesan ke Channel\n• Channel WhatsApp menggunakan API berbeda dari chat biasa\n• Hanya WhatsApp Business API resmi yang support fitur ini\n\nSolusi:\n1. Posting ke channel langsung dari aplikasi WhatsApp mobile\n2. Gunakan WhatsApp Business API resmi (berbayar)\n3. Gunakan WA Gateway untuk chat biasa & group (fitur ini work 100%)\n\nChannel ID yang disimpan: ${req.body?.channelId || 'N/A'}\nAnda masih bisa menyimpan dan mengelola daftar channel, tapi posting harus manual.`
-		});
+		try {
+			let { sessions, channelId, message } = req.body;
+			if (!sessions || !channelId || !message) {
+				return res.send({ status: 400, message: "Input Session, Channel ID, and Message!" });
+			}
+			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+			
+			const modeCheck = await this.checkSessionMode(req, res, sessions, true);
+			if (!modeCheck.valid) {
+				return res.send({ status: 403, message: modeCheck.message });
+			}
+			
+			const client = this.getClient();
+			
+			if (!client) {
+				return res.send({ status: 403, message: `Session ${sessions} not Found` });
+			}
+			if (client.isStop === true) {
+				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
+			}
+			
+			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			
+			console.log(`[Newsletter] Sending to ${channelJid}: ${message}`);
+			
+			const result = await client.sendMessage(channelJid, { text: message });
+			
+			console.log(`[Newsletter] Result:`, JSON.stringify(result?.key, null, 2));
+			
+			await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+			return res.send({ 
+				status: 200, 
+				message: `✅ SUCCESS! Message sent to Channel ${channelId}!`,
+				messageId: result?.key?.id
+			});
+		} catch (error) {
+			console.log('[Newsletter] Error:', error);
+			return res.send({ 
+				status: 500, 
+				message: `Failed to send to channel: ${error.message}`,
+				tip: "Pastikan Anda adalah ADMIN channel tersebut. Jika bukan admin, tidak bisa kirim pesan."
+			});
+		}
 	}
 
 	async sendNewsletterMedia(req, res) {
 		return res.send({ 
 			status: 501, 
-			message: `⚠️ FITUR TIDAK TERSEDIA\n\nMengirim media ke Channel WhatsApp juga TIDAK dapat dilakukan.\n\nSilakan upload media langsung dari aplikasi WhatsApp mobile ke channel Anda.`
+			message: `⚠️ Media ke Channel belum tersedia.\n\nSaat ini hanya TEXT message yang bisa dikirim ke Channel.\n\nUntuk kirim media, gunakan WhatsApp mobile langsung.`
 		});
 	}
 

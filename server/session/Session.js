@@ -1,4 +1,4 @@
-import WASocket, { Browsers, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { makeWASocket, Browsers, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import qrcode from "qrcode";
@@ -190,7 +190,7 @@ class ConnectionSession extends SessionDatabase {
     const store = makeInMemoryStore({});
     store.readFromFile(storePath);
 
-    const client = WASocket.default(options);
+    const client = makeWASocket(options);
 
     // Simpan interval reference agar bisa di-clear nanti
     storeInterval = setInterval(() => {
