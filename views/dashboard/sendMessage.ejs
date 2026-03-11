@@ -13,6 +13,44 @@
 
     <!-- Message Type Cards -->
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Channel Method Toggle - PROMINENT POSITION -->
+        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border-2 border-purple-300 overflow-hidden hover:shadow-lg transition-shadow md:col-span-2 lg:col-span-3">
+            <div class="p-5 border-b border-purple-200">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-purple-200">
+                        <span class="material-symbols-outlined text-purple-700">settings</span>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-purple-900">⚙️ Metode Pengiriman Channel</h3>
+                        <p class="text-xs text-purple-700">Pilih metode untuk mengirim pesan ke WhatsApp Channel</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button onclick="toggleChannelMethod('whatsapp-web')" id="method-whatsapp-web" class="py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md">
+                        🚀 WhatsApp-web.js
+                        <div class="text-xs font-normal mt-1 opacity-90">Perlu scan QR sekali</div>
+                    </button>
+                    <button onclick="toggleChannelMethod('baileys')" id="method-baileys" class="py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md">
+                        ⚡ Baileys
+                        <div class="text-xs font-normal mt-1 opacity-90">Metode lama</div>
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-purple-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-purple-700 font-semibold">Status:</div>
+                            <div id="channel-method-status" class="text-sm font-bold text-purple-900">WhatsApp-web.js (aktif)</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-purple-700">Info:</div>
+                            <div class="text-xs text-purple-600">WhatsApp-web.js lebih reliable untuk channel</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Send Text -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
             <div class="p-4 border-b border-slate-100">
@@ -160,30 +198,6 @@
             </div>
         </div>
 
-        <!-- Channel Method Toggle -->
-<div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
-    <div class="p-4 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-purple-100">
-                <span class="material-symbols-outlined text-purple-600">settings</span>
-            </div>
-            <div>
-                <h3 class="font-semibold text-slate-900">Metode Pengiriman</h3>
-                <p class="text-xs text-slate-500">Pilih metode untuk Kirim ke Saluran</p>
-            </div>
-        </div>
-    </div>
-    <div class="p-4">
-        <div class="grid grid-cols-2 gap-2 mb-3">
-            <button onclick="toggleChannelMethod('whatsapp-web')" id="method-whatsapp-web" class="py-2 px-3 bg-indigo-100 text-indigo-700 rounded-lg font-medium text-sm border border-indigo-200 hover:bg-indigo-200 transition-colors">WhatsApp-web.js</button>
-            <button onclick="toggleChannelMethod('baileys')" id="method-baileys" class="py-2 px-3 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm border border-gray-200 hover:bg-gray-200 transition-colors">Baileys</button>
-        </div>
-        <div class="text-xs text-slate-500">
-            <div>Status: <span id="channel-method-status" class="font-medium">WhatsApp-web.js (aktif)</span></div>
-            <div class="mt-1">Catatan: WhatsApp-web.js perlu scan QR sekali</div>
-        </div>
-    </div>
-</div>
 
 <!-- Send Newsletter -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
@@ -249,20 +263,22 @@
     function toggleChannelMethod(method) {
         selectedChannelMethod = method;
         
-        // Update button states
-        document.getElementById('method-whatsapp-web').className = 
-            method === 'whatsapp-web' ? 
-            'py-2 px-3 bg-indigo-100 text-indigo-700 rounded-lg font-medium text-sm border border-indigo-200 hover:bg-indigo-200 transition-colors' :
-            'py-2 px-3 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm border border-gray-200 hover:bg-gray-200 transition-colors';
+        const webBtn = document.getElementById('method-whatsapp-web');
+        const baileysBtn = document.getElementById('method-baileys');
         
-        document.getElementById('method-baileys').className = 
-            method === 'baileys' ? 
-            'py-2 px-3 bg-indigo-100 text-indigo-700 rounded-lg font-medium text-sm border border-indigo-200 hover:bg-indigo-200 transition-colors' :
-            'py-2 px-3 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm border border-gray-200 hover:bg-gray-200 transition-colors';
+        if (method === 'whatsapp-web') {
+            // WhatsApp-web.js active
+            webBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
+            baileysBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
+            document.getElementById('channel-method-status').textContent = 'WhatsApp-web.js (aktif) - Lebih reliable untuk channel';
+        } else {
+            // Baileys active
+            baileysBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
+            webBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
+            document.getElementById('channel-method-status').textContent = 'Baileys (aktif) - Metode lama';
+        }
         
-        // Update status
-        document.getElementById('channel-method-status').textContent = 
-            method === 'whatsapp-web' ? 'WhatsApp-web.js (aktif)' : 'Baileys (aktif)';
+        console.log('[DEBUG] Method changed to:', method);
     }
 
     async function alertSendNewsletter() {
@@ -777,5 +793,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Debug: Log toggle method status
+    console.log('[DEBUG] Toggle method loaded, default:', selectedChannelMethod);
+    Swal.fire({
+        title: 'Toggle Method Tersedia!',
+        text: 'Fitur toggle method WhatsApp-web.js vs Baileys sudah ada di halaman ini. Scroll ke bawah untuk melihat opsi "Metode Pengiriman".',
+        icon: 'info',
+        confirmButtonText: 'OK'
+    });
 });
 </script>
