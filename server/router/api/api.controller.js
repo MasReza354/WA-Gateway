@@ -122,12 +122,32 @@ class ControllerApi extends ConnectionSession {
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
 			
-			await client.sendMessage(channelJid, { text: message });
-			await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-			return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+			// Send message with timeout handling
+			try {
+				const result = await Promise.race([
+					client.sendMessage(channelJid, { text: message }),
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
+					)
+				]);
+				
+				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+				return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+			} catch (sendError) {
+				console.log('[Channel Send Error]:', sendError.message);
+				
+				if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
+					return res.send({ 
+						status: 408, 
+						message: `Timeout: Tidak dapat mengirim ke channel ${channelId}. Pastikan:\n1. Channel ID benar\n2. WhatsApp session adalah admin channel\n3. Session masih aktif (coba restart session)`
+					});
+				}
+				
+				throw sendError;
+			}
 		} catch (error) {
 			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
+			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
 		}
 	}
 
@@ -148,25 +168,63 @@ class ControllerApi extends ConnectionSession {
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
 			
+			// Check session mode
+			const modeCheck = await this.checkSessionMode(req, res, sessions, true);
+			if (!modeCheck.valid) {
+				return res.send({ status: 403, message: modeCheck.message });
+			}
+			
 			let nameRandom = helpers.randomText(10);
+			
+			const sendWithTimeout = async (operation) => {
+				return await Promise.race([
+					operation,
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
+					)
+				]);
+			};
+			
 			if (req.files && Object.keys(req.files).length !== 0) {
 				const file = req.files.file;
 				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
 				await file.mv(dest);
-				await new Client(client, channelJid).sendMedia(dest, text, { file });
-				await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${file.name}, Caption : ${text}`);
-				res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-				return await modules.sleep(3000).then(fs.unlinkSync(dest));
+				
+				try {
+					await sendWithTimeout(new Client(client, channelJid).sendMedia(dest, text, { file }));
+					await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${file.name}, Caption : ${text}`);
+					res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+					return await modules.sleep(3000).then(fs.unlinkSync(dest));
+				} catch (sendError) {
+					if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
+						return res.send({ 
+							status: 408, 
+							message: `Timeout: Tidak dapat mengirim media ke channel ${channelId}. Pastikan session adalah admin channel.`
+						});
+					}
+					throw sendError;
+				}
 			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
 				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
 					const buffer = await helpers.downloadAxios(url);
 					const dest = `./public/temp/${nameRandom}`;
 					fs.writeFileSync(dest, buffer.data);
 					var opts = { file: { name: nameRandom, mimetype: buffer.headers["content-type"] } };
-					await new Client(client, channelJid).sendMedia(dest, text, opts);
-					await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${url}, Caption : ${text}`);
-					res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-					return await modules.sleep(3000).then(fs.unlinkSync(dest));
+					
+					try {
+						await sendWithTimeout(new Client(client, channelJid).sendMedia(dest, text, opts));
+						await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${url}, Caption : ${text}`);
+						res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+						return await modules.sleep(3000).then(fs.unlinkSync(dest));
+					} catch (sendError) {
+						if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
+							return res.send({ 
+								status: 408, 
+								message: `Timeout: Tidak dapat mengirim media ke channel ${channelId}. Pastikan session adalah admin channel.`
+							});
+						}
+						throw sendError;
+					}
 				} else {
 					return res.send({ status: 400, message: "Invalid URL!" });
 				}
@@ -175,7 +233,7 @@ class ControllerApi extends ConnectionSession {
 			}
 		} catch (error) {
 			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
+			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
 		}
 	}
 
@@ -500,6 +558,53 @@ class ControllerApi extends ConnectionSession {
 			return res.status(200).send({
 				data,
 			});
+		} catch (error) {
+			console.log(error);
+			return res.send({ status: 500, message: "Internal Server Error" });
+		}
+	}
+
+	async validateChannel(req, res) {
+		try {
+			const { sessions, channelId } = req.body;
+			
+			if (!sessions || !channelId) {
+				return res.send({ status: 400, message: "Session and Channel ID required!" });
+			}
+			
+			const client = this.getClient();
+			if (!client) {
+				return res.send({ status: 403, message: `Session ${sessions} not Found` });
+			}
+			
+			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			
+			// Try to get channel info (will timeout if not accessible)
+			try {
+				const result = await Promise.race([
+					client.sendMessage(channelJid, { text: '.' }), // Send dot message to test
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Validation timeout')), 15000)
+					)
+				]);
+				
+				// Delete the test message immediately
+				try {
+					await client.sendMessage(channelJid, { delete: result.key });
+				} catch (e) {}
+				
+				return res.send({ 
+					status: 200, 
+					valid: true,
+					message: `Channel ${channelId} is accessible`
+				});
+			} catch (error) {
+				return res.send({ 
+					status: 408, 
+					valid: false,
+					message: `Cannot access channel ${channelId}. Possible reasons:\n1. You are not an admin of this channel\n2. Channel ID is incorrect\n3. Channel has been deleted\n4. Session needs to be restarted`
+				});
+			}
 		} catch (error) {
 			console.log(error);
 			return res.send({ status: 500, message: "Internal Server Error" });
