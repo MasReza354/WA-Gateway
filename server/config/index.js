@@ -19,6 +19,10 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	// Sync ScheduledMessage table
 	await ScheduledMessage.sync();
 	
+	// Sync Session table (add new columns: mode_chat, mode_channel)
+	const Session = (await import('../database/models/session.model.js')).default;
+	await Session.sync({ alter: true });
+	
 	// Start message scheduler
 	startScheduler();
 	

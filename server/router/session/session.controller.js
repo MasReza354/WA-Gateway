@@ -6,31 +6,57 @@ class ControllerUser extends ConnectionSession {
 		super();
 	}
 
-	async createOneSession(req, res) {
-		let endpoint = `/dashboard`;
-		try {
-			let { session_name } = req.body;
-			if (session_name) {
-				if (fs.readdirSync(this.sessionPath).length < 2) {
-					if (!fs.existsSync(`${this.sessionPath}/${session_name}`)) {
-						this.createSession(session_name);
-						req.flash("side", "Success Create Session, Scan QR Now!");
-						return res.redirect(endpoint);
-					} else {
-						req.flash("error_msg", `Can't Create a Session With the Name ${session_name}, Because that Name Already Exists`);
-						return res.redirect(endpoint);
-					}
-				} else {
-					req.flash("error_msg", `Can't create more than one session`);
-					return res.redirect(endpoint);
-				}
-			}
-		} catch (error) {
-			console.log(error);
-			req.flash("error_msg", `Something Wrong`);
-			return res.redirect(endpoint);
-		}
-	}
+  async createOneSession(req, res) {
+    let endpoint = `/dashboard`;
+    try {
+      let { session_name } = req.body;
+      if (session_name) {
+        if (fs.readdirSync(this.sessionPath).filter(x => x !== 'store').length < 2) {
+          if (!fs.existsSync(`${this.sessionPath}/${session_name}`)) {
+            fs.mkdirSync(`${this.sessionPath}/${session_name}`, { recursive: true });
+            req.flash("side", `Success Create Session ${session_name}, Click Generate QR to Start!`);
+            return res.redirect(endpoint);
+          } else {
+            req.flash("error_msg", `Can't Create a Session With the Name ${session_name}, Because that Name Already Exists`);
+            return res.redirect(endpoint);
+          }
+        } else {
+          req.flash("error_msg", `Can't create more than one session`);
+          return res.redirect(endpoint);
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      req.flash("error_msg", `Something Wrong`);
+      return res.redirect(endpoint);
+    }
+  }
+
+  async generateQRSession(req, res) {
+    try {
+      let { session } = req.query;
+      if (session) {
+        const client = this.getClient();
+        const hasClient = client && client.client;
+        
+        if (hasClient) {
+          return res.send({ status: 403, message: `Session is already running, stop it first!` });
+        }
+        
+        if (fs.existsSync(`${this.sessionPath}/${session}`)) {
+          await this.createSession(session);
+          return res.send({ status: 200, message: `QR Code generating for Session ${session}` });
+        } else {
+          return res.send({ status: 404, message: `Session ${session} Folder Not Found!` });
+        }
+      } else {
+        res.send({ status: 400, message: "Input Data!" });
+      }
+    } catch (error) {
+      console.log(error);
+      res.send({ status: 500, message: "Something Wrong" });
+    }
+  }
 
 	async startOneSession(req, res) {
 		try {

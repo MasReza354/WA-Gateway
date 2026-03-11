@@ -1,28 +1,29 @@
+import { DataTypes } from "sequelize";
 import { sequelize } from "../../config/Database.js";
 
 const Session = sequelize.define(
 	"Session",
 	{
 		session_name: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			unique: true,
 			primaryKey: true,
 			allowNull: false,
 		},
 		session_number: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		status: {
-			type: "STRING",
+			type: DataTypes.STRING,
 			allowNull: false,
 		},
 		mode_chat: {
-			type: "BOOLEAN",
+			type: DataTypes.BOOLEAN,
 			defaultValue: true,
 		},
 		mode_channel: {
-			type: "BOOLEAN",
+			type: DataTypes.BOOLEAN,
 			defaultValue: true,
 		},
 	},
