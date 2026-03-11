@@ -114,8 +114,6 @@ class ControllerApi extends ConnectionSession {
 			}
 			
 			const client = this.getClient();
-			console.log('[DEBUG] Client exists:', !!client);
-			console.log('[DEBUG] Client keys:', client ? Object.keys(client) : 'N/A');
 			
 			if (!client) {
 				return res.send({ status: 403, message: `Session ${sessions} not Found` });
@@ -124,65 +122,84 @@ class ControllerApi extends ConnectionSession {
 			}
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
-			console.log('[DEBUG] Sending to channel JID:', channelJid);
-			console.log('[DEBUG] Message:', message);
 			
-			// Check if client has sendMessage method
-			if (typeof client.sendMessage !== 'function') {
-				console.log('[ERROR] client.sendMessage is not a function!');
-				console.log('[DEBUG] Available client methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
-				return res.send({ 
-					status: 500, 
-					message: `Client error: sendMessage method not found. Session may need to be restarted.`
-				});
-			}
-			
-			// Send message with timeout and retry
-			const maxRetries = 2;
+			// Try multiple methods to send to channel
+			let result = null;
 			let lastError = null;
 			
-			for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			// Method 1: Try sendMessage (standard Baileys)
+			try {
+				console.log('[Method 1] Trying sendMessage...');
+				result = await Promise.race([
+					client.sendMessage(channelJid, { text: message }),
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Timeout 10s')), 10000)
+					)
+				]);
+				console.log('[Method 1] SUCCESS!');
+			} catch (e1) {
+				console.log('[Method 1] Failed:', e1.message);
+				lastError = e1;
+				
+				// Method 2: Try with newsletter JID format variation
 				try {
-					console.log(`[DEBUG] Send attempt ${attempt}/${maxRetries}`);
-					
-					const result = await Promise.race([
-						client.sendMessage(channelJid, { text: message }),
+					console.log('[Method 2] Trying with different JID format...');
+					const altJid = channelId.endsWith('@newsletter') ? channelId : `${channelId}@newsletter`;
+					result = await Promise.race([
+						client.sendMessage(altJid, { text: message }),
 						new Promise((_, reject) => 
-							setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
+							setTimeout(() => reject(new Error('Timeout 10s')), 10000)
 						)
 					]);
+					console.log('[Method 2] SUCCESS!');
+				} catch (e2) {
+					console.log('[Method 2] Failed:', e2.message);
+					lastError = e2;
 					
-					console.log('[DEBUG] Message sent successfully:', result);
-					await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-					return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-					
-				} catch (sendError) {
-					console.log(`[DEBUG] Attempt ${attempt} failed:`, sendError.message);
-					lastError = sendError;
-					
-					// Don't retry on timeout, return immediately
-					if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
-						console.log('[ERROR] Timeout - not retrying');
-						return res.send({ 
-							status: 408, 
-							message: `Timeout: Tidak dapat mengirim ke channel ${channelId}. WhatsApp server tidak merespon. Kemungkinan:\n1. Anda BUKAN admin di channel ini\n2. Channel ID salah\n3. Session perlu di-restart (Stop → Start)`
-						});
-					}
-					
-					// Wait before retry
-					if (attempt < maxRetries) {
-						console.log('[DEBUG] Waiting 2s before retry...');
-						await new Promise(resolve => setTimeout(resolve, 2000));
+					// Method 3: Try sendNode (low-level)
+					try {
+						console.log('[Method 3] Trying sendNode...');
+						if (typeof client.sendNode === 'function') {
+							result = await Promise.race([
+								client.sendNode({
+									tag: 'message',
+									attrs: {
+										to: channelJid,
+										type: 'text',
+										id: client.generateMessageTag()
+									},
+									content: [{
+										tag: 'text',
+										attrs: {},
+										content: message
+									}]
+								}),
+								new Promise((_, reject) => 
+									setTimeout(() => reject(new Error('Timeout 10s')), 10000)
+								)
+							]);
+							console.log('[Method 3] SUCCESS!');
+						} else {
+							throw new Error('sendNode not available');
+						}
+					} catch (e3) {
+						console.log('[Method 3] Failed:', e3.message);
+						lastError = e3;
 					}
 				}
 			}
 			
-			// All retries failed
-			console.log('[ERROR] All retries failed:', lastError);
-			return res.send({ 
-				status: 500, 
-				message: `Failed to send after ${maxRetries} attempts: ${lastError.message}`
-			});
+			if (result) {
+				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+				return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+			} else {
+				// All methods failed
+				return res.send({ 
+					status: 408, 
+					message: `Gagal mengirim ke channel ${channelId} setelah 3x percobaan.\n\n⚠️ KEMUNGKINAN BESAR:\nBaileys library TIDAK support penuh kirim pesan ke Channel WhatsApp.\n\nSolusi:\n1. Gunakan WhatsApp Business API resmi\n2. Atau gunakan library lain yang support channels\n3. Channel hanya bisa diposting dari WhatsApp mobile langsung`,
+					error: lastError?.message
+				});
+			}
 			
 		} catch (error) {
 			console.log('[ERROR] Unexpected error:', error);
