@@ -1,6 +1,8 @@
-import { downloadContentFromMessage, toBuffer, generateThumbnail, generateWAMessageFromContent, prepareWAMessageMedia, proto } from "@whiskeysockets/baileys";
+import pkg, { downloadContentFromMessage, toBuffer } from "@whiskeysockets/baileys";
 import axios from "axios";
 import fs from "fs";
+
+const { generateThumbnail, generateWAMessageFromContent, prepareWAMessageMedia, proto } = pkg;
 
 class Client {
   constructor(client, target) {
