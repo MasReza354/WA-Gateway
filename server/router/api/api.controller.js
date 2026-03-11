@@ -114,6 +114,9 @@ class ControllerApi extends ConnectionSession {
 			}
 			
 			const client = this.getClient();
+			console.log('[DEBUG] Client exists:', !!client);
+			console.log('[DEBUG] Client keys:', client ? Object.keys(client) : 'N/A');
+			
 			if (!client) {
 				return res.send({ status: 403, message: `Session ${sessions} not Found` });
 			} else if (client && client.isStop == true) {
@@ -121,32 +124,68 @@ class ControllerApi extends ConnectionSession {
 			}
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			console.log('[DEBUG] Sending to channel JID:', channelJid);
+			console.log('[DEBUG] Message:', message);
 			
-			// Send message with timeout handling
-			try {
-				const result = await Promise.race([
-					client.sendMessage(channelJid, { text: message }),
-					new Promise((_, reject) => 
-						setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
-					)
-				]);
-				
-				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-				return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-			} catch (sendError) {
-				console.log('[Channel Send Error]:', sendError.message);
-				
-				if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
-					return res.send({ 
-						status: 408, 
-						message: `Timeout: Tidak dapat mengirim ke channel ${channelId}. Pastikan:\n1. Channel ID benar\n2. WhatsApp session adalah admin channel\n3. Session masih aktif (coba restart session)`
-					});
-				}
-				
-				throw sendError;
+			// Check if client has sendMessage method
+			if (typeof client.sendMessage !== 'function') {
+				console.log('[ERROR] client.sendMessage is not a function!');
+				console.log('[DEBUG] Available client methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
+				return res.send({ 
+					status: 500, 
+					message: `Client error: sendMessage method not found. Session may need to be restarted.`
+				});
 			}
+			
+			// Send message with timeout and retry
+			const maxRetries = 2;
+			let lastError = null;
+			
+			for (let attempt = 1; attempt <= maxRetries; attempt++) {
+				try {
+					console.log(`[DEBUG] Send attempt ${attempt}/${maxRetries}`);
+					
+					const result = await Promise.race([
+						client.sendMessage(channelJid, { text: message }),
+						new Promise((_, reject) => 
+							setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
+						)
+					]);
+					
+					console.log('[DEBUG] Message sent successfully:', result);
+					await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+					return res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
+					
+				} catch (sendError) {
+					console.log(`[DEBUG] Attempt ${attempt} failed:`, sendError.message);
+					lastError = sendError;
+					
+					// Don't retry on timeout, return immediately
+					if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
+						console.log('[ERROR] Timeout - not retrying');
+						return res.send({ 
+							status: 408, 
+							message: `Timeout: Tidak dapat mengirim ke channel ${channelId}. WhatsApp server tidak merespon. Kemungkinan:\n1. Anda BUKAN admin di channel ini\n2. Channel ID salah\n3. Session perlu di-restart (Stop → Start)`
+						});
+					}
+					
+					// Wait before retry
+					if (attempt < maxRetries) {
+						console.log('[DEBUG] Waiting 2s before retry...');
+						await new Promise(resolve => setTimeout(resolve, 2000));
+					}
+				}
+			}
+			
+			// All retries failed
+			console.log('[ERROR] All retries failed:', lastError);
+			return res.send({ 
+				status: 500, 
+				message: `Failed to send after ${maxRetries} attempts: ${lastError.message}`
+			});
+			
 		} catch (error) {
-			console.log(error);
+			console.log('[ERROR] Unexpected error:', error);
 			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
 		}
 	}
@@ -573,41 +612,103 @@ class ControllerApi extends ConnectionSession {
 			}
 			
 			const client = this.getClient();
+			console.log('[VALIDATE] Client exists:', !!client);
+			
 			if (!client) {
 				return res.send({ status: 403, message: `Session ${sessions} not Found` });
 			}
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			console.log('[VALIDATE] Channel JID:', channelJid);
+			
+			// Check client connection state
+			console.log('[VALIDATE] Client state:', {
+				isStop: client.isStop,
+				type: client.type,
+				hasSend: typeof client.sendMessage === 'function'
+			});
 			
 			// Try to get channel info (will timeout if not accessible)
 			try {
+				console.log('[VALIDATE] Sending test message...');
 				const result = await Promise.race([
 					client.sendMessage(channelJid, { text: '.' }), // Send dot message to test
 					new Promise((_, reject) => 
-						setTimeout(() => reject(new Error('Validation timeout')), 15000)
+						setTimeout(() => reject(new Error('Validation timeout after 15s')), 15000)
 					)
 				]);
+				
+				console.log('[VALIDATE] Test message sent:', result);
 				
 				// Delete the test message immediately
 				try {
 					await client.sendMessage(channelJid, { delete: result.key });
-				} catch (e) {}
+					console.log('[VALIDATE] Test message deleted');
+				} catch (e) {
+					console.log('[VALIDATE] Failed to delete test message:', e.message);
+				}
 				
 				return res.send({ 
 					status: 200, 
 					valid: true,
-					message: `Channel ${channelId} is accessible`
+					message: `Channel ${channelId} is accessible`,
+					debug: {
+						jid: channelJid,
+						messageKey: result?.key
+					}
 				});
 			} catch (error) {
+				console.log('[VALIDATE] Error:', error.message);
 				return res.send({ 
 					status: 408, 
 					valid: false,
-					message: `Cannot access channel ${channelId}. Possible reasons:\n1. You are not an admin of this channel\n2. Channel ID is incorrect\n3. Channel has been deleted\n4. Session needs to be restarted`
+					message: `Cannot access channel ${channelId}. Error: ${error.message}. Possible reasons:\n1. You are not an admin of this channel\n2. Channel ID is incorrect\n3. Channel has been deleted\n4. Session needs to be restarted`,
+					debug: {
+						error: error.message,
+						stack: error.stack
+					}
 				});
 			}
 		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
+			console.log('[VALIDATE] Unexpected error:', error);
+			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
+		}
+	}
+
+	async debugSession(req, res) {
+		try {
+			const client = this.getClient();
+			
+			if (!client) {
+				return res.send({ 
+					status: 404, 
+					message: "No active session",
+					debug: null
+				});
+			}
+			
+			const debugInfo = {
+				clientExists: true,
+				clientType: typeof client,
+				clientKeys: Object.keys(client).slice(0, 20),
+				hasSendMessage: typeof client.sendMessage === 'function',
+				isStop: client.isStop,
+				type: client.type,
+				ev: !!client.ev,
+				ws: !!client.ws,
+				authState: !!client.authState
+			};
+			
+			console.log('[DEBUG] Session info:', debugInfo);
+			
+			return res.send({
+				status: 200,
+				message: "Session debug info",
+				debug: debugInfo
+			});
+		} catch (error) {
+			console.log('[DEBUG] Error:', error);
+			return res.send({ status: 500, message: error.message });
 		}
 	}
 }

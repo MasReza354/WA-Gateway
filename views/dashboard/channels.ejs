@@ -112,7 +112,11 @@ function renderChannels() {
                     <span>Session: <strong>${escapeHtml(channel.session_name)}</strong></span>
                     <span>${formatDate(channel.createdAt)}</span>
                 </div>
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="debugSession()" class="py-2 px-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">bug_report</span>
+                        Debug
+                    </button>
                     <button onclick="validateChannel('${escapeHtml(channel.channel_id)}', '${escapeHtml(channel.channel_name)}')" class="py-2 px-3 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-medium text-xs flex items-center justify-center gap-1">
                         <span class="material-symbols-outlined text-[16px]">verified</span>
                         Test
@@ -349,6 +353,41 @@ async function validateChannel(channelId, channelName) {
         }
     } catch (error) {
         Swal.fire('Error', 'Failed to validate channel', 'error');
+    }
+}
+
+async function debugSession() {
+    Swal.fire({
+        title: 'Session Debug Info',
+        text: 'Loading...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    try {
+        const res = await fetch('/api/debug-session');
+        const data = await res.json();
+        
+        if (data.status === 200 && data.debug) {
+            const debugText = JSON.stringify(data.debug, null, 2);
+            Swal.fire({
+                icon: 'info',
+                title: 'Debug Info',
+                html: `<pre style="text-align:left;font-size:11px;max-height:400px;overflow:auto;background:#1e293b;color:#22c55e;padding:10px;border-radius:8px;">${debugText}</pre>`,
+                width: '700px',
+                confirmButtonText: 'Copy to Clipboard',
+                confirmButtonColor: '#6366f1'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    navigator.clipboard.writeText(debugText);
+                    Swal.fire('Copied!', '', 'success');
+                }
+            });
+        } else {
+            Swal.fire('Error', data.message || 'No debug info', 'error');
+        }
+    } catch (error) {
+        Swal.fire('Error', error.message, 'error');
     }
 }
 

@@ -26,6 +26,7 @@ router.post("/sendproduct", controller.sendProduct.bind(controller));
 router.post("/sendnewsletter", controller.sendNewsletter.bind(controller));
 router.post("/sendnewslettermedia", controller.sendNewsletterMedia.bind(controller));
 router.post("/validate-channel", controller.validateChannel.bind(controller));
+router.get("/debug-session", controller.debugSession.bind(controller));
 
 router.get("/del-history", controller.deleteHistory.bind(controller));
 router.get("/delall-history", controller.deleteAllHistory.bind(controller));
