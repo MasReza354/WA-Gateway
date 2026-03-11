@@ -8,535 +8,514 @@ import { ButtonResponse, ListResponse } from "../../database/db/messageRespon.db
 import HistoryMessage from "../../database/db/history.db.js";
 import SessionDatabase from "../../database/db/session.db.js";
 import { proto, encodeNewsletterMessage, isJidNewsletter } from "@whiskeysockets/baileys";
+import ChannelWebClient from "./channelWeb.js";  // Add ChannelWebClient import
 
 class ControllerApi extends ConnectionSession {
-	constructor() {
-		super();
-		this.history = new HistoryMessage();
-		this.sessionDb = new SessionDatabase();
-	}
+  constructor() {
+    super();
+    this.history = new HistoryMessage();
+    this.sessionDb = new SessionDatabase();
+    this.channelWebClients = new Map(); // Store channel web clients by session
+  }
 
-	async checkSessionMode(req, res, sessions, isChannel = false) {
-		try {
-			const sessionName = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const session = await this.sessionDb.findOneSessionDB(sessionName);
-			
-			if (!session) {
-				return { valid: false, message: `Session ${sessionName} not found` };
-			}
-			
-			if (isChannel && !session.mode_channel) {
-				return { valid: false, message: `Channel mode is DISABLED for session ${sessionName}` };
-			}
-			
-			if (!isChannel && !session.mode_chat) {
-				return { valid: false, message: `Chat mode is DISABLED for session ${sessionName}` };
-			}
-			
-			return { valid: true };
-		} catch (error) {
-			console.log(error);
-			return { valid: false, message: "Internal Server Error" };
-		}
-	}
+  async getOrCreateChannelWebClient(sessionName) {
+    if (!this.channelWebClients.has(sessionName)) {
+      const client = new ChannelWebClient(`channel_${sessionName}`);
+      client.initialize();
+      await client.start();
+      this.channelWebClients.set(sessionName, client);
+    }
+    return this.channelWebClients.get(sessionName);
+  }
 
-	async clientValidator(req, res, sessions, target) {
-		try {
-			const toTarget = helpers.phoneNumber(target);
-			const client = this.getClient();
-			if (!client) {
-				res.send({ status: 403, message: `Session ${sessions} not Found` });
-				return { toTarget: null, client: null };
-			} else if (client && client.isStop == true) {
-				res.send({ status: 403, message: `Session ${sessions} is Stopped` });
-				return { toTarget: null, client: null };
-			}
+  async checkSessionMode(req, res, sessions, isChannel = false) {
+    try {
+      const sessionName = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const session = await this.sessionDb.findOneSessionDB(sessionName);
+      
+      if (!session) {
+        return { valid: false, message: `Session ${sessionName} not found` };
+      }
+      
+      if (isChannel && !session.mode_channel) {
+        return { valid: false, message: `Channel mode is DISABLED for session ${sessionName}` };
+      }
+      
+      if (!isChannel && !session.mode_chat) {
+        return { valid: false, message: `Chat mode is DISABLED for session ${sessionName}` };
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      console.log(error);
+      return { valid: false, message: "Internal Server Error" };
+    }
+  }
 
-			if (toTarget.includes("@g.us")) {
-				var checkPhone = await client.groupMetadata(toTarget).catch((err) => console.log(err));
-			} else if (toTarget.includes("@newsletter")) {
-				var checkPhone = { id: toTarget };
-			} else {
-				var checkPhone = await client.onWhatsApp(toTarget);
-			}
-			if (!toTarget.includes("@g.us") && !toTarget.includes("@newsletter") && Array.isArray(checkPhone) && checkPhone.length) {
-				return { toTarget, client };
-			} else if (toTarget.includes("@g.us") && checkPhone?.id) {
-				return { toTarget, client };
-			} else if (toTarget.includes("@newsletter")) {
-				return { toTarget, client };
-			} else {
-				res.send({ status: 403, message: `The Number/Group (${target}) is not Registered on WhatsApp` });
-				return { toTarget: null, client: null };
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+  async clientValidator(req, res, sessions, target) {
+    try {
+      const toTarget = helpers.phoneNumber(target);
+      const client = this.getClient();
+      if (!client) {
+        res.send({ status: 403, message: `Session ${sessions} not Found` });
+        return { toTarget: null, client: null };
+      } else if (client && client.isStop == true) {
+        res.send({ status: 403, message: `Session ${sessions} is Stopped` });
+        return { toTarget: null, client: null };
+      } else {
+        return { toTarget, client };
+      }
+    } catch (error) {
+      console.log(error);
+      res.send({ status: 500, message: "Internal Server Error" });
+      return { toTarget: null, client: null };
+    }
+  }
 
-	async sendText(req, res) {
-		try {
-			let { sessions, target, message } = req.body;
-			if (!sessions || !target || !message) {
-				return res.send({ status: 400, message: "Input All Data!" });
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			
-			// Check session mode
-			const modeCheck = await this.checkSessionMode(req, res, sessions, false);
-			if (!modeCheck.valid) {
-				return res.send({ status: 403, message: modeCheck.message });
-			}
-			
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			await new Client(client, toTarget).sendText(message);
-			await this.history.pushNewMessage(sessions, "TEXT", toTarget, message);
-			return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+  async getSessions(req, res) {
+    try {
+      const db = await this.sessionDb.findAllSessionDB();
+      const sessions = [];
 
-	async sendNewsletter(req, res) {
-		try {
-			let { sessions, channelId, message } = req.body;
-			if (!sessions || !channelId || !message) {
-				return res.send({ status: 400, message: "Input Session, Channel ID, and Message!" });
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			
-			const modeCheck = await this.checkSessionMode(req, res, sessions, true);
-			if (!modeCheck.valid) {
-				return res.send({ status: 403, message: modeCheck.message });
-			}
-			
-			const client = this.getClient();
-			
-			if (!client) {
-				return res.send({ status: 403, message: `Session ${sessions} not Found` });
-			}
-			if (client.isStop === true) {
-				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
-			}
-			
-			// Format channel JID
-			let channelJid = channelId;
-			if (!channelId.includes("@newsletter")) {
-				channelJid = `${channelId}@newsletter`;
-			}
-			
-			console.log(`\n[Newsletter] ========== START ==========`);
-			console.log(`[Newsletter] Channel JID: ${channelJid}`);
-			console.log(`[Newsletter] Message: ${message}`);
-			console.log(`[Newsletter] User: ${client.user?.id}`);
-			
-			// List available methods to try
-			const methods = [];
-			
-			// Method 1: Direct sendMessage
-			try {
-				console.log(`[Newsletter] Method 1: sendMessage...`);
-				const result = await client.sendMessage(channelJid, { text: message });
-				console.log(`[Newsletter] Method 1 result:`, JSON.stringify(result?.key, null, 2));
-				if (result?.key?.id) {
-					methods.push({ method: 'sendMessage', success: true, id: result.key.id });
-				}
-			} catch (e) {
-				console.log(`[Newsletter] Method 1 failed:`, e.message);
-				methods.push({ method: 'sendMessage', success: false, error: e.message });
-			}
-			
-			// Method 2: Try with conversation format
-			try {
-				console.log(`[Newsletter] Method 2: sendMessage with conversation...`);
-				const msgId = `3EB0${Date.now().toString(36).toUpperCase()}`;
-				const result = await client.sendMessage(channelJid, { 
-					conversation: message 
-				}, { 
-					messageId: msgId 
-				});
-				console.log(`[Newsletter] Method 2 result:`, JSON.stringify(result?.key, null, 2));
-				if (result?.key?.id) {
-					methods.push({ method: 'conversation', success: true, id: result.key.id });
-				}
-			} catch (e) {
-				console.log(`[Newsletter] Method 2 failed:`, e.message);
-				methods.push({ method: 'conversation', success: false, error: e.message });
-			}
-			
-			console.log(`[Newsletter] ========== END ==========\n`);
-			
-			const successMethod = methods.find(m => m.success);
-			
-			if (successMethod) {
-				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-				return res.send({ 
-					status: 200, 
-					message: `Pesan terkirim via ${successMethod.method}!\n\nMessage ID: ${successMethod.id}\n\n⚠️ PENTING:\nJika pesan TIDAK MUNCUL di channel, ini adalah LIMITASI Baileys.\n\nBaileys berhasil mengirim request ke WhatsApp, tapi WhatsApp tidak mempublish pesan ke channel.\n\nKemungkinan penyebab:\n1. Channel ID format salah (coba format numeric)\n2. Akun tidak terdaftar sebagai admin\n3. Baileys memang belum full support untuk channel`,
-					messageId: successMethod.id,
-					methods_tried: methods
-				});
-			} else {
-				return res.send({ 
-					status: 500, 
-					message: `Semua method gagal`,
-					methods_tried: methods
-				});
-			}
-		} catch (error) {
-			console.log('[Newsletter] ERROR:', error);
-			return res.send({ 
-				status: 500, 
-				message: `Error: ${error.message}`
-			});
-		}
-	}
+      if (Array.isArray(db) && db.length) {
+        for (let i = 0; i < db.length; i++) {
+          const session = db[i];
+          const client = this.getClient(session.session_name);
+          if (client) {
+            sessions.push({
+              ...session.toJSON(),
+              status: client.isStop === true ? "Disconnected" : "Connected",
+              session_number: client?.user?.id?.split(":")[0].split("@")[0]
+            });
+          } else {
+            sessions.push({
+              ...session.toJSON(),
+              status: "Disconnected",
+              session_number: null
+            });
+          }
+        }
+      }
 
-	async sendNewsletterMedia(req, res) {
-		return res.send({ 
-			status: 501, 
-			message: `⚠️ Media ke Channel belum tersedia.\n\nSaat ini hanya TEXT message yang bisa dikirim ke Channel.\n\nUntuk kirim media, gunakan WhatsApp mobile langsung.`
-		});
-	}
+      res.send({ status: 200, message: "Success Get Sessions", sessions });
+    } catch (error) {
+      console.log(error);
+      res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
 
-	async sendLocation(req, res) {
-		try {
-			let { sessions, target, long, lat } = req.body;
-			if (!sessions || !target || !long || !lat) {
-				return res.send({ status: 400, message: "Input All Data!" });
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			await new Client(client, toTarget).sendLocation(lat, long);
-			await this.history.pushNewMessage(sessions, "LOCATION", toTarget, `Long : ${long} - Lat : ${lat}`);
-			return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+  async sendText(req, res) {
+    try {
+      let { sessions, target, message } = req.body;
+      if (!sessions || !target || !message) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
 
-	async sendMedia(req, res) {
-		try {
-			let { sessions, target, message, url } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			const text = message ? message : "";
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			let nameRandom = helpers.randomText(10);
-			if (req.files && Object.keys(req.files).length !== 0) {
-				const file = req.files.file;
-				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
-				await file.mv(dest);
-				await new Client(client, toTarget).sendMedia(dest, text, { file });
-				await this.history.pushNewMessage(sessions, "MEDIA", toTarget, `File : ${file.name}, Caption : ${text}`);
-				res.send({ status: 200, message: `Success Send Message to ${target}!` });
-				return await modules.sleep(3000).then(fs.unlinkSync(dest));
-			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
-				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
-					const buffer = await helpers.downloadAxios(url);
-					const dest = `./public/temp/${nameRandom}`;
-					fs.writeFileSync(dest, buffer.data);
-					var opts = { file: { name: nameRandom, mimetype: buffer.headers["content-type"] } };
-					await new Client(client, toTarget).sendMedia(dest, text, opts);
-					await this.history.pushNewMessage(sessions, "MEDIA", toTarget, `File : ${url}, Caption : ${text}`);
-					res.send({ status: 200, message: `Success Send Message to ${target}!` });
-					return await modules.sleep(3000).then(fs.unlinkSync(dest));
-				} else {
-					return res.send({ status: 400, message: "Invalid URL!" });
-				}
-			} else {
-				return res.send({ status: 400, message: "No files were uploaded or no URL!" });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
 
-	async sendSticker(req, res) {
-		try {
-			let { sessions, target, packname, author, url } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			let nameRandom = helpers.randomText(10);
-			if (req.files && Object.keys(req.files).length !== 0) {
-				const file = req.files.file;
-				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
-				await file.mv(dest);
-				await new Client(client, toTarget).sendSticker(true, file.mimetype.split("/")[0], dest, packname, author, true);
-				await this.history.pushNewMessage(sessions, "STICKER", toTarget, file.name);
-				return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
-				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
-					const buffer = await helpers.downloadAxios(url);
-					const dest = `./public/temp/${nameRandom}`;
-					fs.writeFileSync(dest, buffer.data);
-					await new Client(client, toTarget).sendSticker(true, buffer.headers["content-type"].split("/")[0], dest, packname, author, true);
-					await this.history.pushNewMessage(sessions, "STICKER", toTarget, url);
-					return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-				} else {
-					return res.send({ status: 400, message: "Invalid URL!" });
-				}
-			} else {
-				return res.send({ status: 400, message: "No files were uploaded or no URL!" });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      const result = await client.sendMessage(toTarget, { text: message });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, message);
 
-	async sendProduct(req, res) {
-		try {
-			let { sessions, target, title, message, footer, owner, currency, price, salePrice, url } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			let nameRandom = helpers.randomText(10);
-			if (req.files && Object.keys(req.files).length !== 0) {
-				const file = req.files.file;
-				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
-				await file.mv(dest);
-				var opts = { title, currencyCode: currency, price, salePrice };
-				await new Client(client, toTarget).sendProduct(dest, message, footer, owner, opts);
-				await this.history.pushNewMessage(sessions, "PRODUCT", toTarget, `${title}, ${price} - ${salePrice}`);
-				res.send({ status: 200, message: `Success Send Message to ${target}!` });
-				return await modules.sleep(3000).then(fs.unlinkSync(dest));
-			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
-				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
-					const buffer = await helpers.downloadAxios(url);
-					const dest = `./public/temp/${nameRandom}`;
-					fs.writeFileSync(dest, buffer.data);
-					var opts = { title, currencyCode: currency, price, salePrice };
-					await new Client(client, toTarget).sendProduct(dest, message, footer, owner, opts);
-					await this.history.pushNewMessage(sessions, "PRODUCT", toTarget, `${title}, ${price} - ${salePrice}`);
-					res.send({ status: 200, message: `Success Send Message to ${target}!` });
-					return await modules.sleep(3000).then(fs.unlinkSync(dest));
-				} else {
-					return res.send({ status: 400, message: "Invalid URL!" });
-				}
-			} else {
-				return res.send({ status: 400, message: "No files were uploaded or no URL!" });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Message to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
 
-	async sendContact(req, res) {
-		try {
-			let { sessions, target, contact, contactName, anotherContact } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			if (anotherContact) {
-				let arr = anotherContact.split(",");
-				let arr2 = arr?.map((value, i) => {
-					if (!value.includes("-")) return { err: "strip" };
-					let number = value.split("-")[0].trim();
-					let name = value.split("-")[1].trim();
-					return { number, name };
-				});
-				for (let j = 0; j < arr2.length; j++) {
-					if (arr2[j].err) {
-						return res.send({ status: 400, message: `Wrong Number. Separate contact number and name by using - (min), And separate the second contact with , (comma). (e.g. 628111111111 - Baba, 62822222222 - Caca)` });
-					}
-				}
-				var listNumber = arr2.map((value) => value.number);
-				var listName = arr2.map((value) => value.name);
-				listNumber.splice(0, 0, contact);
-				listName.splice(0, 0, contactName);
-			} else {
-				var listNumber = [contact];
-				var listName = [contactName];
-			}
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			let stats;
-			for (let i = 0; i < listNumber.length; i++) {
-				const checking = await client.onWhatsApp(`${listNumber[i]}`);
-				if (checking.length === 0) {
-					console.log("ini gada array");
-					stats = listNumber[i];
-				}
-			}
-			if (stats) {
-				return res.send({ status: 403, message: `The Number (${stats}) is not Registered on WhatsApp` });
-			} else {
-				await new Client(client, toTarget).sendContact(listNumber, listName);
-				await this.history.pushNewMessage(sessions, "CONTACT", toTarget, `${contact} - ${contactName}, ${anotherContact}`);
-				return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+  async sendNewsletter(req, res) {
+    try {
+      let { sessions, channelId, message } = req.body;
+      if (!sessions || !channelId || !message) {
+        return res.send({ status: 400, message: "Input Session, Channel ID, and Message!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      
+      const modeCheck = await this.checkSessionMode(req, res, sessions, true);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+      
+      // Try Baileys first (if available)
+      const baileysClient = this.getClient();
+      if (baileysClient && baileysClient.isStop !== true) {
+        console.log(`[Newsletter] Trying Baileys method...`);
+        try {
+          // Format channel JID
+          let channelJid = channelId;
+          if (!channelId.includes("@newsletter")) {
+            channelJid = `${channelId}@newsletter`;
+          }
+          
+          const result = await baileysClient.sendMessage(channelJid, { text: message });
+          if (result?.key?.id) {
+            await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+            return res.send({ 
+              status: 200, 
+              message: `Pesan terkirim via Baileys!\n\nMessage ID: ${result.key.id}\n\nCatatan: Pesan mungkin tidak langsung muncul di channel tergantung pengaturan WhatsApp.`,
+              messageId: result.key.id
+            });
+          }
+        } catch (baileysError) {
+          console.log(`[Newsletter] Baileys failed:`, baileysError.message);
+        }
+      }
+      
+      // If Baileys fails, try WhatsApp-web.js method
+      console.log(`[Newsletter] Trying WhatsApp-web.js method...`);
+      try {
+        const channelWebClient = await this.getOrCreateChannelWebClient(sessions);
+        
+        const result = await channelWebClient.sendToChannel(channelId, message);
+        
+        await this.history.pushNewMessage(sessions, "NEWSLETTER", `${channelId}@newsletter`, message);
+        return res.send({ 
+          status: 200, 
+          message: `Pesan terkirim via WhatsApp-web.js!\n\nMessage ID: ${result.messageId}\nChat ID: ${result.chatId}`,
+          messageId: result.messageId,
+          method: 'whatsapp-web.js'
+        });
+      } catch (webError) {
+        console.log(`[Newsletter] WhatsApp-web.js failed:`, webError.message);
+        return res.send({ 
+          status: 500, 
+          message: `Gagal mengirim via semua metode\n\nBaileys: Tidak tersedia atau gagal\nWhatsApp-web.js: ${webError.message}`
+        });
+      }
+    } catch (error) {
+      console.log('[Newsletter] ERROR:', error);
+      return res.send({ 
+        status: 500, 
+        message: `Error: ${error.message}`
+      });
+    }
+  }
 
-	async sendButton(req, res) {
-		try {
-			let { sessions, target, message, textFooter, button, btnMessage, urlButton, callButton, responUrl, responCall, url } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			const footer = textFooter ? textFooter : "";
-			const text = message ? message : "";
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			let nameRandom = helpers.randomText(10);
-			if (req.files && Object.keys(req.files).length !== 0) {
-				var file = req.files.file;
-				var dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
-				await file.mv(dest);
-				var isFile = 1;
-			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
-				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
-					var buffer = await helpers.downloadAxios(url);
-					var dest = `./public/temp/${nameRandom}`;
-					fs.writeFileSync(dest, buffer.data);
-					var isFile = 2;
-				} else {
-					return res.send({ status: 400, message: "Invalid URL!" });
-				}
-			}
-			const randomId = helpers.randomText(21);
-			const buttonFilter = Array.isArray(button) && button.length ? button.filter((x) => x != "") : button;
+  async sendNewsletterMedia(req, res) {
+    return res.send({ 
+      status: 501, 
+      message: `⚠️ Media ke Channel belum tersedia.\n\nSaat ini hanya TEXT message yang bisa dikirim ke Channel.\n\nUntuk kirim media, gunakan WhatsApp mobile langsung.`
+    });
+  }
 
-			const buttons =
-				Array.isArray(buttonFilter) && buttonFilter.length
-					? buttonFilter.map((value, index) => {
-							let result = { index: 3 + index, quickReplyButton: { displayText: value, id: `${value}${randomId}` } };
-							return result;
-					  })
-					: [{ index: 3, quickReplyButton: { displayText: buttonFilter, id: `${buttonFilter}${randomId}` } }];
-			if (urlButton) {
-				if (!/^(http(s)?:\/\/)[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/gm.test(responUrl)) {
-					return res.send({ status: 400, message: `Make sure response url button is using http or https! Example: https://www.google.com/` });
-				} else {
-					buttons.splice(0, 0, { index: 1, urlButton: { displayText: urlButton, url: responUrl } });
-				}
-			}
-			if (callButton) {
-				buttons.splice(1, 0, { index: 2, callButton: { displayText: callButton, phoneNumber: responCall } });
-			}
-			const buttDb =
-				Array.isArray(buttonFilter) && buttonFilter.length
-					? buttonFilter.map((value, index) => {
-							return `${value}${randomId}`;
-					  })
-					: [`${buttonFilter}${randomId}`];
-			btnMessage = Array.isArray(btnMessage) && btnMessage.length ? btnMessage : [btnMessage];
-			await new ButtonResponse().createButtonResponse(sessions, toTarget, randomId, buttDb, btnMessage);
+  async sendLocation(req, res) {
+    try {
+      let { sessions, target, long, lat } = req.body;
+      if (!sessions || !target || !long || !lat) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
 
-			if (isFile == 1) {
-				await new Client(client, toTarget).sendButton(text, footer, buttons, dest, file.mimetype);
-			} else if (isFile == 2) {
-				await new Client(client, toTarget).sendButton(text, footer, buttons, dest, buffer.headers["content-type"]);
-			} else {
-				await new Client(client, toTarget).sendButton(text, footer, buttons);
-			}
-			await this.history.pushNewMessage(sessions, "BUTTON", toTarget, message);
-			return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
 
-	async sendListMessage(req, res) {
-		try {
-			let { sessions, target, title, body, footer, button, titleRow, descRow, respRow } = req.body;
-			if (!sessions || !target) {
-				return res.send({ status: 400, message: "Input Session & Target!" });
-			}
-			body = body ? body : "";
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
-			if (!client || !toTarget) return;
-			const listFilter = titleRow.filter((x) => x != "");
-			const descFilter = descRow.filter((x) => x != "");
-			const randomId = helpers.randomText(21);
-			let listRows = [];
-			for (let i = 0; i < listFilter.length; i++) {
-				listRows.push({ title: listFilter[i], rowId: `${listFilter[i]}${randomId}`, description: descFilter[i] });
-			}
-			const sections = [{ title: "Choose One", rows: listRows }];
-			const listDb = listFilter.map((value, index) => {
-				return `${value}${randomId}`;
-			});
-			await new ListResponse().createListResponse(sessions, toTarget, randomId, listDb, respRow);
-			await new Client(client, toTarget).sendList(body, footer, title, button, sections);
-			await this.history.pushNewMessage(sessions, "LIST", toTarget, title);
-			return res.send({ status: 200, message: `Success Send Message to ${target}!` });
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      const result = await client.sendMessage(toTarget, {
+        location: {
+          degreesLatitude: parseFloat(lat),
+          degreesLongitude: parseFloat(long),
+        },
+      });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Location: ${lat}, ${long}`);
 
-	async deleteHistory(req, res) {
-		try {
-			let { id } = req.query;
-			if (id) {
-				await this.history.deleteHistory(id);
-				return res.send({ status: 200, message: `Success Delete History Send Message` });
-			} else {
-				return res.send({ status: 404, message: `Not Found` });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Location to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
 
-	async deleteAllHistory(req, res) {
-		try {
-			await this.history.deleteAllHistory();
-			return res.send({ status: 200, message: `Success Delete All History Send Message` });
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+  async sendMedia(req, res) {
+    try {
+      let { sessions, target, message } = req.body;
+      if (!sessions || !target || !message) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
 
-	async getSessions(req, res) {
-		try {
-			const data = await this.session.findAll();
-			return res.status(200).send({
-				data,
-			});
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: "Internal Server Error" });
-		}
-	}
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
 
-	async validateChannel(req, res) {
-		// Channel validation removed - Baileys doesn't support channel operations
-		return res.send({ 
-			status: 501, 
-			valid: false,
-			message: "Channel validation tidak tersedia. Silakan cek channel langsung dari WhatsApp mobile."
-		});
-	}
+      const regex = /^(https?:\/\/\S+\.(jpg|jpeg|png|gif|mp4|webp))$/i;
+      if (!regex.test(message)) {
+        return res.send({ status: 400, message: "URL Tidak Valid!" });
+      }
+
+      const ext = message.split(".").pop();
+      const download = await helpers.downloadFile(message, ext);
+
+      const result = await client.sendMessage(toTarget, {
+        image: download,
+        caption: message,
+      });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Media: ${message}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Media to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async sendSticker(req, res) {
+    try {
+      let { sessions, target, message } = req.body;
+      if (!sessions || !target || !message) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
+
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+
+      const regex = /^(https?:\/\/\S+\.(jpg|jpeg|png|gif|webp))$/i;
+      if (!regex.test(message)) {
+        return res.send({ status: 400, message: "URL Tidak Valid!" });
+      }
+
+      const ext = message.split(".").pop();
+      const download = await helpers.downloadFile(message, ext);
+
+      const result = await client.sendMessage(toTarget, {
+        sticker: download,
+      });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Sticker: ${message}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Sticker to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async sendContact(req, res) {
+    try {
+      let { sessions, target, contact } = req.body;
+      if (!sessions || !target || !contact) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
+
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+
+      const result = await client.sendMessage(toTarget, {
+        contacts: {
+          displayName: contact.name,
+          contacts: [
+            {
+              displayName: contact.name,
+              vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${contact.name}\nORG:whatsapp-gateway\nTEL:+${contact.number}\nEND:VCARD`,
+            },
+          ],
+        },
+      });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Contact: ${contact.name}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Contact to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async sendButton(req, res) {
+    try {
+      let { sessions, target, title, footer, buttons } = req.body;
+      if (!sessions || !target || !title || !footer || !buttons) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
+
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+
+      const result = await client.sendMessage(
+        toTarget,
+        {
+          templateButtons: buttons.map((btn, index) => ({
+            index: index,
+            urlButton: {
+              displayText: btn.text,
+              url: btn.url,
+            },
+          })),
+          text: title,
+          footer: footer,
+        },
+        { quoted: null }
+      );
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Button: ${title}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Button to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async sendListMessage(req, res) {
+    try {
+      let { sessions, target, title, footer, buttonText, sections } = req.body;
+      if (!sessions || !target || !title || !footer || !buttonText || !sections) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
+
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+
+      const result = await client.sendMessage(
+        toTarget,
+        {
+          text: title,
+          footer: footer,
+          title: title,
+          buttonText: buttonText,
+          sections: sections,
+        },
+        { quoted: null }
+      );
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `List: ${title}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send List Message to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async sendProduct(req, res) {
+    try {
+      let { sessions, target, title, body, price, url } = req.body;
+      if (!sessions || !target || !title || !body || !price || !url) {
+        return res.send({ status: 400, message: "Input All Data!" });
+      }
+      sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
+      const { client, toTarget } = await this.clientValidator(req, res, sessions, target);
+      if (!client || !toTarget) return;
+
+      const modeCheck = await this.checkSessionMode(req, res, sessions, false);
+      if (!modeCheck.valid) {
+        return res.send({ status: 403, message: modeCheck.message });
+      }
+
+      const regex = /^(https?:\/\/\S+\.(jpg|jpeg|png|gif|mp4|webp))$/i;
+      if (!regex.test(url)) {
+        return res.send({ status: 400, message: "URL Tidak Valid!" });
+      }
+
+      const ext = url.split(".").pop();
+      const download = await helpers.downloadFile(url, ext);
+
+      const result = await client.sendMessage(toTarget, {
+        product: {
+          product: {
+            id: "123456789",
+            title: title,
+            description: body,
+            currencyCode: "IDR",
+            priceAmount1000: parseInt(price) * 1000,
+            retailerId: "Retailer",
+            url: "https://www.google.com",
+          },
+          catalog: {
+            id: "123456789",
+            name: "Catalog Name",
+          },
+          body: body,
+          title: title,
+          footer: "Footer Text",
+        },
+        image: download,
+      });
+      await this.history.pushNewMessage(sessions, "SEND", toTarget, `Product: ${title}`);
+
+      if (result) {
+        return res.send({ status: 200, message: `Success Send Product to ${target}!` });
+      }
+    } catch (error) {
+      console.log(error);
+      return res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async deleteHistory(req, res) {
+    try {
+      const { session_name } = req.query;
+      if (!session_name) {
+        return res.send({ status: 400, message: "Session name is required!" });
+      }
+
+      await this.history.deleteHistoryBySession(session_name);
+      res.send({ status: 200, message: "History deleted successfully" });
+    } catch (error) {
+      console.log(error);
+      res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async deleteAllHistory(req, res) {
+    try {
+      await this.history.deleteAllHistory();
+      res.send({ status: 200, message: "All history deleted successfully" });
+    } catch (error) {
+      console.log(error);
+      res.send({ status: 500, message: "Internal Server Error" });
+    }
+  }
+
+  async validateChannel(req, res) {
+    // Channel validation removed - Baileys doesn't support channel operations
+    return res.send({ 
+      status: 501, 
+      valid: false,
+      message: "Channel validation tidak tersedia. Silakan cek channel langsung dari WhatsApp mobile."
+    });
+  }
 }
 
 export default ControllerApi;
