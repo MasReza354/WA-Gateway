@@ -6,7 +6,6 @@ import Client from "../../session/Client/handler/Client.js";
 import ConnectionSession from "../../session/Session.js";
 import { ButtonResponse, ListResponse } from "../../database/db/messageRespon.db.js";
 import HistoryMessage from "../../database/db/history.db.js";
-import History from "../../database/models/history.model.js";
 import SessionDatabase from "../../database/db/session.db.js";
 
 class ControllerApi extends ConnectionSession {
@@ -497,13 +496,7 @@ class ControllerApi extends ConnectionSession {
 
 	async getSessions(req, res) {
 		try {
-			const data = await this.session.findAll({
-				include: [
-					{
-						model: History,
-					},
-				],
-			});
+			const data = await this.session.findAll();
 			return res.status(200).send({
 				data,
 			});
