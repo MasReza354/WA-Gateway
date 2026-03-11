@@ -1,4 +1,4 @@
-import { makeWASocket, Browsers, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { makeWASocket, Browsers, DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import qrcode from "qrcode";
@@ -13,7 +13,6 @@ let sessions = {};
 let qrCodeStore = {};
 
 // Tracking untuk cleanup resource
-let storeInterval = null;
 let currentClient = null;
 
 // Export all sessions
@@ -47,12 +46,6 @@ class ConnectionSession extends SessionDatabase {
    * Mencegah memory leak dari event listener dan setInterval yang menumpuk.
    */
   cleanupOldClient() {
-    // Clear store write interval
-    if (storeInterval) {
-      clearInterval(storeInterval);
-      storeInterval = null;
-    }
-
     // Hapus semua event listener dari client lama
     if (currentClient && currentClient.ev) {
       try {
@@ -175,7 +168,6 @@ class ConnectionSession extends SessionDatabase {
     socket.emit("session-created", { session_name });
 
     const sessionDir = `${this.sessionPath}/${session_name}`;
-    const storePath = `${this.sessionPath}/store/${session_name}.json`;
     let { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
@@ -187,16 +179,7 @@ class ConnectionSession extends SessionDatabase {
       version,
     };
 
-    const store = makeInMemoryStore({});
-    store.readFromFile(storePath);
-
     const client = makeWASocket(options);
-
-    // Simpan interval reference agar bisa di-clear nanti
-    storeInterval = setInterval(() => {
-      store.writeToFile(storePath);
-    }, 10_000);
-    store.bind(client.ev);
 
     // Simpan reference ke client saat ini
     currentClient = client;
