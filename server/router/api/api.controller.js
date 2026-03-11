@@ -7,6 +7,7 @@ import ConnectionSession from "../../session/Session.js";
 import { ButtonResponse, ListResponse } from "../../database/db/messageRespon.db.js";
 import HistoryMessage from "../../database/db/history.db.js";
 import SessionDatabase from "../../database/db/session.db.js";
+import { proto, encodeNewsletterMessage, isJidNewsletter } from "@whiskeysockets/baileys";
 
 class ControllerApi extends ConnectionSession {
 	constructor() {
@@ -121,63 +122,62 @@ class ControllerApi extends ConnectionSession {
 				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
 			}
 			
-			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
+			// Format channel JID
+			let channelJid = channelId;
+			if (!channelId.includes("@newsletter")) {
+				channelJid = `${channelId}@newsletter`;
+			}
 			
-			console.log(`[Newsletter] Attempting to send to ${channelJid}: ${message}`);
+			console.log(`[Newsletter] Sending to ${channelJid}: ${message}`);
+			console.log(`[Newsletter] User:`, client.user?.id);
+			console.log(`[Newsletter] isJidNewsletter:`, isJidNewsletter(channelJid));
 			
+			// Generate message ID
 			const msgId = `3EB0${Date.now().toString(36).toUpperCase()}`;
 			
-			try {
-				const result = await client.relayMessage(channelJid, { text: message }, { messageId: msgId });
-				console.log(`[Newsletter] relayMessage result:`, result);
-				
-				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-				return res.send({ 
-					status: 200, 
-					message: `SUCCESS! Message sent to Channel!`,
-					messageId: msgId
-				});
-			} catch (relayError) {
-				console.log(`[Newsletter] relayMessage failed:`, relayError.message);
-				
-				if (typeof client.sendNode === 'function') {
-					console.log(`[Newsletter] Trying sendNode...`);
-					
-					const stanza = {
-						tag: 'message',
-						attrs: {
-							to: channelJid,
-							type: 'text',
-							id: msgId
-						},
-						content: [
-							{
-								tag: 'plaintext',
-								attrs: {},
-								content: Buffer.from(message, 'utf-8')
-							}
-						]
-					};
-					
-					await client.sendNode(stanza);
-					console.log(`[Newsletter] sendNode sent`);
-					
-					await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-					return res.send({ 
-						status: 200, 
-						message: `Message sent via sendNode to Channel!`,
-						messageId: msgId
-					});
-				}
-				
-				throw relayError;
-			}
+			// Create message in proper format
+			const messageContent = {
+				conversation: message
+			};
+			
+			// Encode message for newsletter
+			const encodedMessage = encodeNewsletterMessage(messageContent);
+			console.log(`[Newsletter] Encoded message length:`, encodedMessage.length);
+			
+			// Send via sendNode with proper newsletter format
+			const stanza = {
+				tag: 'message',
+				attrs: {
+					to: channelJid,
+					type: 'text',
+					id: msgId
+				},
+				content: [
+					{
+						tag: 'plaintext',
+						attrs: {},
+						content: encodedMessage
+					}
+				]
+			};
+			
+			console.log(`[Newsletter] Sending stanza...`);
+			await client.sendNode(stanza);
+			console.log(`[Newsletter] Stanza sent successfully`);
+			
+			await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+			
+			return res.send({ 
+				status: 200, 
+				message: `Message sent to Channel!\n\nMessage ID: ${msgId}\n\nJika pesan tidak muncul dalam 1-2 menit:\n1. Pastikan Anda ADMIN channel\n2. Cek Channel ID sudah benar\n3. Coba refresh channel`,
+				messageId: msgId
+			});
 		} catch (error) {
-			console.log('[Newsletter] Error:', error);
+			console.log('[Newsletter] Full Error:', error);
 			return res.send({ 
 				status: 500, 
-				message: `Failed to send to channel: ${error.message}`,
-				tip: "Pastikan: 1) Anda ADMIN channel, 2) Channel ID benar, 3) Session aktif"
+				message: `Failed: ${error.message}`,
+				tip: "PASTIKAN: 1) Anda ADMIN channel, 2) Channel ID benar, 3) Session CONNECTED"
 			});
 		}
 	}
