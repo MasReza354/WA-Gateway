@@ -100,11 +100,11 @@ class ControllerApi extends ConnectionSession {
 	}
 
 	async sendNewsletter(req, res) {
-		try {
-			let { sessions, channelId, message } = req.body;
-			if (!sessions || !channelId || !message) {
-				return res.send({ status: 400, message: "Input All Data! (sessions, channelId, message)" });
-			}
+		return res.send({ 
+			status: 501, 
+			message: `⚠️ FITUR TIDAK TERSEDIA\n\nMaaf, mengirim pesan ke Channel WhatsApp TIDAK dapat dilakukan melalui WA Gateway.\n\nAlasan:\n• Baileys library (yang digunakan WA Gateway) belum support pengiriman pesan ke Channel\n• Channel WhatsApp menggunakan API berbeda dari chat biasa\n• Hanya WhatsApp Business API resmi yang support fitur ini\n\nSolusi:\n1. Posting ke channel langsung dari aplikasi WhatsApp mobile\n2. Gunakan WhatsApp Business API resmi (berbayar)\n3. Gunakan WA Gateway untuk chat biasa & group (fitur ini work 100%)\n\nChannel ID yang disimpan: ${req.body?.channelId || 'N/A'}\nAnda masih bisa menyimpan dan mengelola daftar channel, tapi posting harus manual.`
+		});
+	}
 			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
 			
 			// Check session mode
@@ -229,89 +229,10 @@ class ControllerApi extends ConnectionSession {
 	}
 
 	async sendNewsletterMedia(req, res) {
-		try {
-			let { sessions, channelId, message, url } = req.body;
-			if (!sessions || !channelId) {
-				return res.send({ status: 400, message: "Input Session & Channel ID!" });
-			}
-			const text = message ? message : "";
-			sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-			const client = this.getClient();
-			if (!client) {
-				return res.send({ status: 403, message: `Session ${sessions} not Found` });
-			} else if (client && client.isStop == true) {
-				return res.send({ status: 403, message: `Session ${sessions} is Stopped` });
-			}
-			
-			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
-			
-			// Check session mode
-			const modeCheck = await this.checkSessionMode(req, res, sessions, true);
-			if (!modeCheck.valid) {
-				return res.send({ status: 403, message: modeCheck.message });
-			}
-			
-			let nameRandom = helpers.randomText(10);
-			
-			const sendWithTimeout = async (operation) => {
-				return await Promise.race([
-					operation,
-					new Promise((_, reject) => 
-						setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
-					)
-				]);
-			};
-			
-			if (req.files && Object.keys(req.files).length !== 0) {
-				const file = req.files.file;
-				const dest = `./public/temp/${nameRandom}${path.extname(file.name)}`;
-				await file.mv(dest);
-				
-				try {
-					await sendWithTimeout(new Client(client, channelJid).sendMedia(dest, text, { file }));
-					await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${file.name}, Caption : ${text}`);
-					res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-					return await modules.sleep(3000).then(fs.unlinkSync(dest));
-				} catch (sendError) {
-					if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
-						return res.send({ 
-							status: 408, 
-							message: `Timeout: Tidak dapat mengirim media ke channel ${channelId}. Pastikan session adalah admin channel.`
-						});
-					}
-					throw sendError;
-				}
-			} else if (url && (!req.files || Object.keys(req.files).length === 0)) {
-				if (/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi.test(url)) {
-					const buffer = await helpers.downloadAxios(url);
-					const dest = `./public/temp/${nameRandom}`;
-					fs.writeFileSync(dest, buffer.data);
-					var opts = { file: { name: nameRandom, mimetype: buffer.headers["content-type"] } };
-					
-					try {
-						await sendWithTimeout(new Client(client, channelJid).sendMedia(dest, text, opts));
-						await this.history.pushNewMessage(sessions, "NEWSLETTER_MEDIA", channelJid, `File : ${url}, Caption : ${text}`);
-						res.send({ status: 200, message: `Success Send Message to Channel ${channelId}!` });
-						return await modules.sleep(3000).then(fs.unlinkSync(dest));
-					} catch (sendError) {
-						if (sendError.message.includes('timeout') || sendError.message.includes('Timed Out')) {
-							return res.send({ 
-								status: 408, 
-								message: `Timeout: Tidak dapat mengirim media ke channel ${channelId}. Pastikan session adalah admin channel.`
-							});
-						}
-						throw sendError;
-					}
-				} else {
-					return res.send({ status: 400, message: "Invalid URL!" });
-				}
-			} else {
-				return res.send({ status: 400, message: "No files were uploaded or no URL!" });
-			}
-		} catch (error) {
-			console.log(error);
-			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
-		}
+		return res.send({ 
+			status: 501, 
+			message: `⚠️ FITUR TIDAK TERSEDIA\n\nMengirim media ke Channel WhatsApp juga TIDAK dapat dilakukan.\n\nSilakan upload media langsung dari aplikasi WhatsApp mobile ke channel Anda.`
+		});
 	}
 
 	async sendLocation(req, res) {
@@ -642,207 +563,12 @@ class ControllerApi extends ConnectionSession {
 	}
 
 	async validateChannel(req, res) {
-		try {
-			const { sessions, channelId } = req.body;
-			
-			if (!sessions || !channelId) {
-				return res.send({ status: 400, message: "Session and Channel ID required!" });
-			}
-			
-			const client = this.getClient();
-			console.log('[VALIDATE] Client exists:', !!client);
-			
-			if (!client) {
-				return res.send({ status: 403, message: `Session ${sessions} not Found` });
-			}
-			
-			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
-			console.log('[VALIDATE] Channel JID:', channelJid);
-			
-			// Check client connection state
-			console.log('[VALIDATE] Client state:', {
-				isStop: client.isStop,
-				type: client.type,
-				hasSend: typeof client.sendMessage === 'function'
-			});
-			
-			// Try to get channel info (will timeout if not accessible)
-			try {
-				console.log('[VALIDATE] Sending test message...');
-				const result = await Promise.race([
-					client.sendMessage(channelJid, { text: '.' }), // Send dot message to test
-					new Promise((_, reject) => 
-						setTimeout(() => reject(new Error('Validation timeout after 15s')), 15000)
-					)
-				]);
-				
-				console.log('[VALIDATE] Test message sent:', result);
-				
-				// Delete the test message immediately
-				try {
-					await client.sendMessage(channelJid, { delete: result.key });
-					console.log('[VALIDATE] Test message deleted');
-				} catch (e) {
-					console.log('[VALIDATE] Failed to delete test message:', e.message);
-				}
-				
-				return res.send({ 
-					status: 200, 
-					valid: true,
-					message: `Channel ${channelId} is accessible`,
-					debug: {
-						jid: channelJid,
-						messageKey: result?.key
-					}
-				});
-			} catch (error) {
-				console.log('[VALIDATE] Error:', error.message);
-				return res.send({ 
-					status: 408, 
-					valid: false,
-					message: `Cannot access channel ${channelId}. Error: ${error.message}. Possible reasons:\n1. You are not an admin of this channel\n2. Channel ID is incorrect\n3. Channel has been deleted\n4. Session needs to be restarted`,
-					debug: {
-						error: error.message,
-						stack: error.stack
-					}
-				});
-			}
-		} catch (error) {
-			console.log('[VALIDATE] Unexpected error:', error);
-			return res.send({ status: 500, message: `Internal Server Error: ${error.message}` });
-		}
-	}
-
-	async debugSession(req, res) {
-		try {
-			const client = this.getClient();
-			
-			if (!client) {
-				return res.send({ 
-					status: 404, 
-					message: "No active session",
-					debug: null
-				});
-			}
-			
-			const debugInfo = {
-				clientExists: true,
-				clientType: typeof client,
-				clientKeys: Object.keys(client).slice(0, 20),
-				hasSendMessage: typeof client.sendMessage === 'function',
-				isStop: client.isStop,
-				type: client.type,
-				ev: !!client.ev,
-				ws: !!client.ws,
-				authState: !!client.authState
-			};
-			
-			console.log('[DEBUG] Session info:', debugInfo);
-			
-			return res.send({
-				status: 200,
-				message: "Session debug info",
-				debug: debugInfo
-			});
-		} catch (error) {
-			console.log('[DEBUG] Error:', error);
-			return res.send({ status: 500, message: error.message });
-		}
-	}
-
-	async testChannelSend(req, res) {
-		try {
-			const { sessions, channelId, message, method } = req.body;
-			
-			if (!sessions || !channelId || !message) {
-				return res.send({ status: 400, message: "Sessions, channelId, and message required!" });
-			}
-			
-			const client = this.getClient();
-			if (!client) {
-				return res.send({ status: 403, message: `Session ${sessions} not Found` });
-			}
-			
-			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
-			const testMethod = method || 'all';
-			let result = null;
-			
-			// Test specific method or all
-			if (testMethod === '1' || testMethod === 'all') {
-				console.log('[TEST] Method 1: sendMessage');
-				try {
-					result = await Promise.race([
-						client.sendMessage(channelJid, { text: message }),
-						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
-					]);
-					return res.send({ status: 200, method: 'sendMessage', success: true, result });
-				} catch (e) {
-					console.log('[TEST] Method 1 failed:', e.message);
-					if (testMethod === '1') {
-						return res.send({ status: 408, method: 'sendMessage', success: false, error: e.message });
-					}
-				}
-			}
-			
-			if (testMethod === '2' || testMethod === 'all') {
-				console.log('[TEST] Method 2: sendNode simple');
-				try {
-					result = await Promise.race([
-						client.sendNode({
-							tag: 'message',
-							attrs: { to: channelJid, type: 'text', id: client.generateMessageTag() },
-							content: [{ tag: 'text', attrs: {}, content: message }]
-						}),
-						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
-					]);
-					return res.send({ status: 200, method: 'sendNode-simple', success: true, result: JSON.stringify(result) });
-				} catch (e) {
-					console.log('[TEST] Method 2 failed:', e.message);
-					if (testMethod === '2') {
-						return res.send({ status: 408, method: 'sendNode-simple', success: false, error: e.message });
-					}
-				}
-			}
-			
-			if (testMethod === '3' || testMethod === 'all') {
-				console.log('[TEST] Method 3: sendNode with iq wrapper');
-				try {
-					result = await Promise.race([
-						client.sendNode({
-							tag: 'iq',
-							attrs: {
-								to: channelJid,
-								type: 'set',
-								id: client.generateMessageTag(),
-								xmlns: 'w:m'
-							},
-							content: [{
-								tag: 'message',
-								attrs: { type: 'text', t: Date.now().toString() },
-								content: [{ tag: 'text', attrs: {}, content: message }]
-							}]
-						}),
-						new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 15s')), 15000))
-					]);
-					return res.send({ status: 200, method: 'sendNode-iq', success: true, result: JSON.stringify(result) });
-				} catch (e) {
-					console.log('[TEST] Method 3 failed:', e.message);
-					if (testMethod === '3') {
-						return res.send({ status: 408, method: 'sendNode-iq', success: false, error: e.message });
-					}
-				}
-			}
-			
-			return res.send({ 
-				status: 408, 
-				message: 'All methods failed',
-				tests: 'Try individual methods with method: "1", "2", or "3"'
-			});
-			
-		} catch (error) {
-			console.log('[TEST] Error:', error);
-			return res.send({ status: 500, message: error.message });
-		}
+		// Channel validation removed - Baileys doesn't support channel operations
+		return res.send({ 
+			status: 501, 
+			valid: false,
+			message: "Channel validation tidak tersedia. Silakan cek channel langsung dari WhatsApp mobile."
+		});
 	}
 }
 
