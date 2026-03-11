@@ -161,8 +161,97 @@
 
 <script>
 const socket = io.connect(`<%= process.env.HOST %>`);
+let SESSION_NAME = '<%= session_name || "" %>';
 
 document.getElementById('stat-session').textContent = '<%= session ? "1" : "0" %>';
+
+// Fetch session name dari API jika tidak ada
+async function getSessionName() {
+	if (SESSION_NAME) return SESSION_NAME;
+	
+	try {
+		const res = await fetch('/api/session-status');
+		const data = await res.json();
+		if (data.status === 200 && data.sessions && data.sessions.length > 0) {
+			SESSION_NAME = data.sessions[0].session_name;
+			return SESSION_NAME;
+		}
+	} catch (e) {
+		console.error('Failed to get session name:', e);
+	}
+	return null;
+}
+
+// Polling QR Code setiap 2 detik untuk memastikan QR muncul
+async function fetchQRCode() {
+	try {
+		const sessionName = await getSessionName();
+		if (!sessionName) return;
+		
+		const res = await fetch(`/api/qr-code/${sessionName}`);
+		const data = await res.json();
+		if (data.status === 200 && data.qr && data.qr.buffer) {
+			document.getElementById("socket-qr").innerHTML = `
+				<div class="text-center">
+					<p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+					<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${data.qr.buffer}" alt="QR Code" />
+					<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+				</div>`;
+		}
+	} catch (e) {
+		console.error('Failed to fetch QR code:', e);
+	}
+}
+
+// Fetch QR code segera saat halaman dimuat
+fetchQRCode();
+// Polling QR code setiap 2 detik
+setInterval(fetchQRCode, 2000);
+
+// Polling untuk sync status setiap 5 detik
+setInterval(async () => {
+	try {
+		const res = await fetch('/api/session-status');
+		const data = await res.json();
+		if (data.status === 200 && data.sessions.length > 0) {
+			const activeSession = data.sessions.find(s => s.realTimeStatus === 'CONNECTED') || data.sessions[0];
+			
+			const statusEl = document.getElementById("statusSession");
+			const nameEl = document.getElementById("nameSession");
+			const numberEl = document.getElementById("numberSession");
+			const statStatusEl = document.getElementById("stat-status");
+			
+			if (statusEl && activeSession) {
+				statusEl.textContent = activeSession.status;
+				statusEl.className = `text-xs mt-1 px-2 py-0.5 rounded-full inline-block ${activeSession.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
+				
+				if (nameEl && activeSession.session_name) nameEl.textContent = activeSession.session_name;
+				if (numberEl && activeSession.session_number) numberEl.textContent = activeSession.session_number;
+			}
+			
+			if (statStatusEl && activeSession) {
+				const isConnected = activeSession.status === 'CONNECTED';
+				statStatusEl.textContent = activeSession.status;
+				statStatusEl.className = `text-sm font-bold ${isConnected ? 'text-green-600' : 'text-red-600'}`;
+				
+				const parentDiv = statStatusEl.closest('.bg-white');
+				if (parentDiv) {
+					const iconSpan = parentDiv.querySelector('.material-symbols-outlined');
+					const iconDiv = iconSpan ? iconSpan.closest('div') : null;
+					if (iconSpan) {
+						iconSpan.textContent = isConnected ? 'check_circle' : 'cancel';
+						iconSpan.className = `material-symbols-outlined ${isConnected ? 'text-green-600' : 'text-red-600'}`;
+					}
+					if (iconDiv) {
+						iconDiv.className = `p-3 rounded-xl ${isConnected ? 'bg-green-100' : 'bg-red-100'}`;
+					}
+				}
+			}
+		}
+	} catch (e) {
+		console.error('Failed to sync session status:', e);
+	}
+}, 5000);
 
 socket.on("connection-status", (event) => {
     document.getElementById("cancelqr").innerHTML = `<span class="text-wa-green font-medium">Status Update!</span>`;
@@ -176,15 +265,28 @@ socket.on("connection-status", (event) => {
 });
 
 socket.on(`update-qr`, (event) => {
+    SESSION_NAME = event.session_name;
     document.getElementById("socket-qr").innerHTML = `
         <div class="text-center">
-            <p class="text-sm text-slate-600 mb-4">Scan QR Code dengan WhatsApp</p>
-            <img class="mx-auto rounded-lg shadow-lg" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+            <p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+            <img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+            <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+        </div>`;
+});
+
+// Listener untuk semua session QR
+socket.on("qr-session_1", (event) => {
+    SESSION_NAME = event.session_name;
+    document.getElementById("socket-qr").innerHTML = `
+        <div class="text-center">
+            <p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+            <img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
             <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
         </div>`;
 });
 
 socket.on("logger", (event) => {
+    SESSION_NAME = event.session_name;
     let c = event.result.split("\n");
     let d = c.map((el) => `<div class="py-1 border-b border-slate-700/50">${el}</div>`);
     
@@ -225,6 +327,7 @@ socket.on("logger", (event) => {
 });
 
 socket.on(`session-status`, (event) => {
+    SESSION_NAME = event.session_name;
     const statusEl = document.getElementById("statusSession");
     if (statusEl) {
         statusEl.textContent = event.status;
@@ -249,6 +352,43 @@ socket.on(`session-status`, (event) => {
                 </button>`;
         }
     }
+    
+    // Update Session Aktif section jika belum ada
+    const sessionCreateEl = document.getElementById("sessionCreate");
+    if (sessionCreateEl && event.status !== 'CONNECTED') {
+        sessionCreateEl.innerHTML = `
+            <div class="text-center space-y-3">
+                <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-wa-green to-wa-teal flex items-center justify-center">
+                    <i class="fab fa-whatsapp text-white text-2xl"></i>
+                </div>
+                <div>
+                    <p id="nameSession" class="font-bold text-slate-900">${event.session_name}</p>
+                    <p id="numberSession" class="text-sm text-slate-500">-</p>
+                    <p id="statusSession" class="text-xs mt-1 px-2 py-0.5 rounded-full inline-block bg-yellow-100 text-yellow-700">${event.status}</p>
+                </div>
+                <div id="buttonSession" class="flex flex-col gap-2">
+                    <button onclick="alertStartSession('${event.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                        Start Session
+                    </button>
+                </div>
+                <div id="deleteSession">
+                    <a href="/session/delete-session/${event.session_name}" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                        Hapus Session
+                    </a>
+                </div>
+            </div>`;
+        document.getElementById('stat-session').textContent = '1';
+    }
+});
+
+// Listener untuk session baru dibuat
+socket.on("session-created", (event) => {
+    SESSION_NAME = event.session_name;
+    console.log('Session created:', event.session_name);
+    // Refresh halaman untuk update session list
+    setTimeout(() => location.reload(), 500);
 });
 
 function updateStatStatus(status) {
@@ -285,11 +425,20 @@ async function alertStartSession(session_name) {
         cancelButtonText: 'Batal'
     }).then((result) => {
         if (result.isConfirmed) {
+            // Tampilkan loading di QR area
+            document.getElementById("socket-qr").innerHTML = `
+                <div class="text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-wa-green mx-auto mb-4"></div>
+                    <p class="text-sm text-slate-600">Memulai session...</p>
+                    <p class="text-xs text-slate-400 mt-2">QR Code akan muncul setelah session siap</p>
+                </div>`;
+            
             fetch(`/session/start-session?session=${session_name}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.status == 200) {
                         Swal.fire('Berhasil!', data.message, 'success');
+                        // QR akan muncul otomatis via socket event
                     } else {
                         Swal.fire('Gagal', data.message, 'error');
                     }

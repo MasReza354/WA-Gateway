@@ -11,8 +11,6 @@ import { startScheduler } from "../scheduler/messageScheduler.js";
 
 const server = new App();
 
-moment.tz.setDefault("Asia/Jakarta").locale("id");
-
 const { SESSION_NAME, AUTO_START } = process.env;
 
 const serverHttp = server.app.listen(server.PORT, async () => {
@@ -23,6 +21,9 @@ const serverHttp = server.app.listen(server.PORT, async () => {
 	
 	// Start message scheduler
 	startScheduler();
+	
+	// Sync sessions from folder to database
+	await new ConnectionSession().syncSessionsFromFolder();
 	
 	if (AUTO_START == "y") {
 		await new ConnectionSession().createSession(SESSION_NAME);

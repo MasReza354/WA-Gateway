@@ -110,19 +110,61 @@
 
 <script>
 const socket = io.connect(`<%= process.env.HOST %>`);
+let currentSessionName = null;
 
+// Fungsi fetch QR Code dari API
+async function fetchQRCode(session_name) {
+	try {
+		const res = await fetch(`/api/qr-code/${session_name}`);
+		const data = await res.json();
+		if (data.status === 200 && data.qr && data.qr.buffer) {
+			document.getElementById("qr-area").classList.remove("hidden");
+			document.getElementById("qr-display").innerHTML = `
+				<div class="text-center">
+					<p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+					<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${data.qr.buffer}" alt="QR Code" />
+					<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+				</div>`;
+		}
+	} catch (e) {
+		console.error('Failed to fetch QR code:', e);
+	}
+}
+
+// Polling QR Code setiap 2 detik jika ada session yang aktif
+setInterval(() => {
+	if (currentSessionName) {
+		fetchQRCode(currentSessionName);
+	}
+}, 2000);
+
+// Listen untuk QR Code dengan session_name spesifik
 socket.on(`update-qr`, (event) => {
-    document.getElementById("qr-area").classList.remove("hidden");
-    document.getElementById("qr-display").innerHTML = `
-        <div class="text-center">
-            <img class="mx-auto rounded-lg shadow-lg" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
-            <p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
-        </div>`;
+	currentSessionName = event.session_name;
+	document.getElementById("qr-area").classList.remove("hidden");
+	document.getElementById("qr-display").innerHTML = `
+		<div class="text-center">
+			<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+			<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+		</div>`;
+});
+
+// Listener spesifik per session untuk QR code
+socket.on("qr-session_1", (event) => {
+	currentSessionName = event.session_name;
+	document.getElementById("qr-area").classList.remove("hidden");
+	document.getElementById("qr-display").innerHTML = `
+		<div class="text-center">
+			<p class="text-sm text-slate-600 mb-4 font-medium">Scan QR Code dengan WhatsApp</p>
+			<img class="mx-auto rounded-lg shadow-lg max-w-[280px]" src="data:image/png;base64,${event.buffer}" alt="QR Code" />
+			<p class="text-xs text-slate-400 mt-4">QR akan refresh otomatis</p>
+		</div>`;
 });
 
 socket.on("logger", (event) => {
-    document.getElementById("qr-area").classList.add("hidden");
-    Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
+	currentSessionName = null;
+	document.getElementById("qr-area").classList.add("hidden");
+	Swal.fire('Berhasil!', 'Session terhubung', 'success').then(() => location.reload());
 });
 
 socket.on("session-status", (event) => {
@@ -151,6 +193,47 @@ socket.on("session-status", (event) => {
     
     updateStats();
 });
+
+// Polling untuk sync status setiap 5 detik
+setInterval(async () => {
+	try {
+		const res = await fetch('/api/session-status');
+		const data = await res.json();
+		if (data.status === 200) {
+			data.sessions.forEach(session => {
+				const card = document.querySelector(`[data-session="${session.session_name}"]`);
+				if (card) {
+					const statusBadge = card.querySelector('.status-badge');
+					const buttonContainer = card.querySelector('.button-container');
+					
+					if (statusBadge) {
+						statusBadge.textContent = session.status;
+						statusBadge.className = `status-badge px-2 py-1 text-xs font-medium rounded-full ${session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
+					}
+					
+					if (buttonContainer) {
+						if (session.status === "CONNECTED") {
+							buttonContainer.innerHTML = `
+								<button onclick="stopSession('${session.session_name}')" class="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+									<span class="material-symbols-outlined text-[18px]">stop_circle</span>
+									Stop
+								</button>`;
+						} else {
+							buttonContainer.innerHTML = `
+								<button onclick="startSession('${session.session_name}')" class="w-full py-2 px-4 bg-wa-green hover:bg-wa-teal text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+									<span class="material-symbols-outlined text-[18px]">play_circle</span>
+									Start
+								</button>`;
+						}
+					}
+				}
+			});
+			updateStats();
+		}
+	} catch (e) {
+		console.error('Failed to sync session status:', e);
+	}
+}, 5000);
 
 function updateStats() {
     const connected = document.querySelectorAll('.status-badge.text-green-700').length;
@@ -196,19 +279,41 @@ async function createNewSession() {
 }
 
 async function startSession(sessionName) {
-    Swal.fire({
-        title: 'Memulai Session...',
-        text: 'Tunggu QR Code muncul',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+	currentSessionName = sessionName;
+	
+	// Tampilkan QR area segera
+	document.getElementById("qr-area").classList.remove("hidden");
+	document.getElementById("qr-display").innerHTML = `
+		<div class="text-center">
+			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-wa-green mx-auto mb-4"></div>
+			<p class="text-sm text-slate-600">Memulai session...</p>
+			<p class="text-xs text-slate-400 mt-2">QR Code akan muncul setelah session siap</p>
+		</div>`;
+	
+	Swal.fire({
+		title: 'Memulai Session...',
+		html: `
+			<div class="text-center">
+				<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-wa-green mx-auto mb-4"></div>
+				<p class="text-sm text-slate-600">Tunggu QR Code muncul</p>
+			</div>
+		`,
+		allowOutsideClick: false,
+		didOpen: () => Swal.showLoading()
+	});
 
-    const res = await fetch(`/session/start-session?session=${sessionName}`).then(r => r.json());
-    
-    if (res.status == 200) {
-        Swal.close();
-    } else {
-        Swal.fire('Gagal', res.message, 'error');
+	const res = await fetch(`/session/start-session?session=${sessionName}`).then(r => r.json());
+	
+	if (res.status == 200) {
+		Swal.close();
+		// Fetch QR code dari API
+		setTimeout(() => fetchQRCode(sessionName), 1000);
+	} else {
+		Swal.fire('Gagal', res.message, 'error');
+		document.getElementById("qr-area").classList.add("hidden");
+		currentSessionName = null;
+	}
+}
     }
 }
 

@@ -10,6 +10,7 @@ import Message from "./Client/handler/Message.js";
 
 const { SESSION_PATH, LOG_PATH } = process.env;
 let sessions = {};
+let qrCodeStore = {};
 
 // Tracking untuk cleanup resource
 let storeInterval = null;
@@ -18,6 +19,15 @@ let currentClient = null;
 // Export all sessions
 export function getAllSessions() {
   return sessions;
+}
+
+// Export QR code store
+export function getQRCodeStore() {
+  return qrCodeStore;
+}
+
+export function clearQRCodeStore(session_name) {
+  delete qrCodeStore[session_name];
 }
 
 class ConnectionSession extends SessionDatabase {
@@ -56,25 +66,100 @@ class ConnectionSession extends SessionDatabase {
     currentClient = null;
   }
 
-  async deleteSession(session_name) {
+  async deleteSession(session_name, deleteFromDB = true) {
     // Cleanup resource terlebih dahulu
     this.cleanupOldClient();
 
     if (fs.existsSync(`${this.sessionPath}/${session_name}`)) fs.rmSync(`${this.sessionPath}/${session_name}`, { force: true, recursive: true });
     if (fs.existsSync(`${this.sessionPath}/store/${session_name}.json`)) fs.unlinkSync(`${this.sessionPath}/store/${session_name}.json`);
     if (fs.existsSync(`${this.logPath}/${session_name}.txt`)) fs.unlinkSync(`${this.logPath}/${session_name}.txt`);
-    await this.deleteSessionDB(session_name);
+    if (deleteFromDB) {
+      await this.deleteSessionDB(session_name);
+    }
     sessions = {};
   }
 
-async generateQr(input, session_name) {
+  async syncSessionsFromFolder() {
+    const dbSessions = await this.findAllSessionDB();
+    const dbSessionNames = dbSessions.map(s => s.session_name);
+    
+    if (!fs.existsSync(this.sessionPath)) {
+      fs.mkdirSync(this.sessionPath, { recursive: true });
+      return;
+    }
+    
+    const folders = fs.readdirSync(this.sessionPath).filter(f => f !== "store");
+    
+    for (const folder of folders) {
+      const sessionDir = `${this.sessionPath}/${folder}`;
+      const credsFile = `${sessionDir}/creds.json`;
+      
+      if (fs.existsSync(credsFile)) {
+        try {
+          const creds = JSON.parse(fs.readFileSync(credsFile, "utf8"));
+          const sessionNumber = creds.me?.id?.split(":")[0] || "unknown";
+          
+          if (!dbSessionNames.includes(folder)) {
+            await this.session.create({ 
+              session_name: folder, 
+              session_number: sessionNumber, 
+              status: "STOPPED" 
+            });
+            console.log(
+              modules.color("[SYS]", "#EB6112"),
+              modules.color(`[Session: ${folder}] Restored from folder`, "#82E0AA")
+            );
+          } else {
+            const dbSession = dbSessions.find(s => s.session_name === folder);
+            if (dbSession && dbSession.status !== "STOPPED") {
+              await this.updateStatusSessionDB(folder, "STOPPED");
+            }
+          }
+        } catch (e) {
+          console.log(
+            modules.color("[SYS]", "#EB6112"),
+            modules.color(`[Session: ${folder}] Cannot read creds, skipping sync`, "#E6B0AA")
+          );
+        }
+      }
+    }
+    
+    for (const dbSession of dbSessions) {
+      if (!folders.includes(dbSession.session_name)) {
+        await this.deleteSessionDB(dbSession.session_name);
+        console.log(
+          modules.color("[SYS]", "#EB6112"),
+          modules.color(`[Session: ${dbSession.session_name}] Removed from DB (no folder)`, "#E6B0AA")
+        );
+      }
+    }
+  }
+
+  async generateQr(input, session_name) {
     let rawData = await qrcode.toDataURL(input, { scale: 8 });
     let dataBase64 = rawData.replace(/^data:image\/png;base64,/, "");
-    socket.emit(`update-qr`, { buffer: dataBase64, session_name });
+    
+    // Simpan QR code ke store
+    qrCodeStore[session_name] = {
+      buffer: dataBase64,
+      session_name,
+      timestamp: Date.now()
+    };
+    
+    // Emit QR dengan retry untuk memastikan client menerima
+    const emitQR = () => {
+      socket.emit(`update-qr`, { buffer: dataBase64, session_name });
+      socket.emit(`qr-${session_name}`, { buffer: dataBase64, session_name });
+    };
+    
+    emitQR();
+    setTimeout(emitQR, 500);
+    setTimeout(emitQR, 1000);
+    
     this.count++;
     console.log(
       modules.color("[SYS]", "#EB6112"),
-      modules.color(`[Session: ${session_name}] Open the browser, a qr has appeared on the website, scan it now!`, "#E6B0AA")
+      modules.color(`[Session: ${session_name}] QR Code generated, waiting for scan...`, "#E6B0AA")
     );
     console.log(`QR Count: ${this.count}`);
   }
@@ -85,6 +170,9 @@ async generateQr(input, session_name) {
 
     // Reset QR count untuk session baru
     this.count = 0;
+    
+    // Emit session created event
+    socket.emit("session-created", { session_name });
 
     const sessionDir = `${this.sessionPath}/${session_name}`;
     const storePath = `${this.sessionPath}/store/${session_name}.json`;
@@ -123,7 +211,8 @@ async generateQr(input, session_name) {
       }
 
       if (this.count >= 6) {
-        this.deleteSession(session_name);
+        await this.updateStatusSessionDB(session_name, "STOPPED");
+        this.deleteSession(session_name, false);
         socket.emit("connection-status", { session_name, result: "No Response, QR Scan Canceled" });
         console.log(`Count : ${this.count}, QR Stopped!`);
         return;
@@ -134,6 +223,9 @@ async generateQr(input, session_name) {
       if (update.isNewLogin) {
         await this.createSessionDB(session_name, client.authState.creds.me.id.split(":")[0]);
         let files = `${this.logPath}/${session_name}.txt`;
+        if (!fs.existsSync(this.logPath)) {
+          fs.mkdirSync(this.logPath, { recursive: true });
+        }
         if (fs.existsSync(files)) {
           var readLog = fs.readFileSync(files, "utf8");
         } else {
@@ -158,8 +250,8 @@ async generateQr(input, session_name) {
             modules.color("[SYS]", "#EB6112"),
             modules.color(`Bad Session File, Please Delete [Session: ${session_name}] and Scan Again`, "#E6B0AA")
           );
-          // Hapus session dulu, lalu emit event (jangan panggil client.logout() setelah delete)
-          this.deleteSession(session_name);
+          await this.updateStatusSessionDB(session_name, "STOPPED");
+          this.deleteSession(session_name, false);
           return socket.emit("connection-status", { session_name, result: "Bad Session File, Please Create QR Again" });
 
         } else if (reason === DisconnectReason.connectionClosed) {
@@ -199,7 +291,9 @@ async generateQr(input, session_name) {
             modules.color("[SYS]", "#EB6112"),
             modules.color(`[Session: ${session_name}] Connection Replaced, Another New Session Opened, Please Close Current Session First`, "#E6B0AA")
           );
+          await this.updateStatusSessionDB(session_name, "STOPPED");
           this.cleanupOldClient();
+          socket.emit("session-status", { session_name, status: "STOPPED" });
           return socket.emit("connection-status", {
             session_name,
             result: `[Session: ${session_name}] Connection Replaced, Another New Session Opened, Please Create QR Again`,
@@ -210,7 +304,8 @@ async generateQr(input, session_name) {
             modules.color("[SYS]", "#EB6112"),
             modules.color(`Device Logged Out, Please Delete [Session: ${session_name}] and Scan Again.`, "#E6B0AA")
           );
-          this.deleteSession(session_name);
+          await this.updateStatusSessionDB(session_name, "STOPPED");
+          this.deleteSession(session_name, false);
           return socket.emit("connection-status", { session_name, result: `[Session: ${session_name}] Device Logged Out, Please Create QR Again` });
 
         } else if (reason === DisconnectReason.restartRequired) {

@@ -4,6 +4,7 @@ import SessionDatabase from "../../database/db/session.db.js";
 import { AutoReply } from "../../database/db/messageRespon.db.js";
 import HistoryMessage from "../../database/db/history.db.js";
 import ScheduledMessageDatabase from "../../database/db/scheduledMessage.db.js";
+import { getAllSessions, getQRCodeStore } from "../../session/Session.js";
 const router = express.Router();
 
 const { SESSION_PATH, LOG_PATH } = process.env;
@@ -74,6 +75,44 @@ router.get("/sessions", async (req, res) => {
 		layout: "layouts/main",
 		sessions,
 	});
+});
+
+// API: Get real-time session status
+router.get("/api/session-status", async (req, res) => {
+	try {
+		const sessions = await db.findAllSessionDB();
+		const allSessions = getAllSessions();
+		
+		const status = sessions.map(session => {
+			const isActive = allSessions && Object.keys(allSessions).length > 0;
+			return {
+				...session.toJSON(),
+				isActive,
+				realTimeStatus: isActive ? "CONNECTED" : session.status
+			};
+		});
+		
+		res.json({ status: 200, sessions: status });
+	} catch (error) {
+		res.json({ status: 500, message: error.message });
+	}
+});
+
+// API: Get QR Code for session
+router.get("/api/qr-code/:session_name", async (req, res) => {
+	try {
+		const { session_name } = req.params;
+		const qrStore = getQRCodeStore();
+		const qrData = qrStore[session_name];
+		
+		if (qrData) {
+			res.json({ status: 200, qr: qrData });
+		} else {
+			res.json({ status: 404, message: "QR Code not found" });
+		}
+	} catch (error) {
+		res.json({ status: 500, message: error.message });
+	}
 });
 
 export default router;

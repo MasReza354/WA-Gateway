@@ -102,7 +102,7 @@ class ControllerUser extends ConnectionSession {
 		try {
 			let { session } = req.params;
 			if (session) {
-				await this.deleteSession(session);
+				await this.deleteSession(session, true);
 				req.flash("success_msg", `Success Delete Session ${session}!`);
 				return res.redirect(endpoint);
 			} else {
