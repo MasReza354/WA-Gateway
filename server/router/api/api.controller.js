@@ -144,33 +144,9 @@ class ControllerApi extends ConnectionSession {
         return res.send({ status: 403, message: modeCheck.message });
       }
       
-      // Try Baileys first (if available)
-      const baileysClient = this.getClient();
-      if (baileysClient && baileysClient.isStop !== true) {
-        console.log(`[Newsletter] Trying Baileys method...`);
-        try {
-          // Format channel JID
-          let channelJid = channelId;
-          if (!channelId.includes("@newsletter")) {
-            channelJid = `${channelId}@newsletter`;
-          }
-          
-          const result = await baileysClient.sendMessage(channelJid, { text: message });
-          if (result?.key?.id) {
-            await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-            return res.send({ 
-              status: 200, 
-              message: `Pesan terkirim via Baileys!\n\nMessage ID: ${result.key.id}\n\nCatatan: Pesan mungkin tidak langsung muncul di channel tergantung pengaturan WhatsApp.`,
-              messageId: result.key.id
-            });
-          }
-        } catch (baileysError) {
-          console.log(`[Newsletter] Baileys failed:`, baileysError.message);
-        }
-      }
+      console.log('[Newsletter] Trying WhatsApp-web.js method first...');
       
-      // If Baileys fails, try WhatsApp-web.js method
-      console.log(`[Newsletter] Trying WhatsApp-web.js method...`);
+      // Use WhatsApp-web.js method directly
       try {
         const channelWebClient = await this.getOrCreateChannelWebClient(sessions);
         
@@ -185,9 +161,36 @@ class ControllerApi extends ConnectionSession {
         });
       } catch (webError) {
         console.log(`[Newsletter] WhatsApp-web.js failed:`, webError.message);
+        
+        // Fallback to Baileys method
+        console.log(`[Newsletter] Trying Baileys fallback...`);
+        const baileysClient = this.getClient();
+        if (baileysClient && baileysClient.isStop !== true) {
+          try {
+            // Format channel JID
+            let channelJid = channelId;
+            if (!channelId.includes("@newsletter")) {
+              channelJid = `${channelId}@newsletter`;
+            }
+            
+            const result = await baileysClient.sendMessage(channelJid, { text: message });
+            if (result?.key?.id) {
+              await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+              return res.send({ 
+                status: 200, 
+                message: `Pesan terkirim via Baileys!\n\nMessage ID: ${result.key.id}\n\nCatatan: Pesan mungkin tidak langsung muncul di channel tergantung pengaturan WhatsApp.`,
+                messageId: result.key.id,
+                method: 'baileys'
+              });
+            }
+          } catch (baileysError) {
+            console.log(`[Newsletter] Baileys fallback failed:`, baileysError.message);
+          }
+        }
+        
         return res.send({ 
           status: 500, 
-          message: `Gagal mengirim via semua metode\n\nBaileys: Tidak tersedia atau gagal\nWhatsApp-web.js: ${webError.message}`
+          message: `Gagal mengirim via semua metode\n\nWhatsApp-web.js: ${webError.message}\nBaileys: fallback juga gagal`
         });
       }
     } catch (error) {
