@@ -123,24 +123,61 @@ class ControllerApi extends ConnectionSession {
 			
 			const channelJid = channelId.includes("@newsletter") ? channelId : `${channelId}@newsletter`;
 			
-			console.log(`[Newsletter] Sending to ${channelJid}: ${message}`);
+			console.log(`[Newsletter] Attempting to send to ${channelJid}: ${message}`);
 			
-			const result = await client.sendMessage(channelJid, { text: message });
+			const msgId = `3EB0${Date.now().toString(36).toUpperCase()}`;
 			
-			console.log(`[Newsletter] Result:`, JSON.stringify(result?.key, null, 2));
-			
-			await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-			return res.send({ 
-				status: 200, 
-				message: `✅ SUCCESS! Message sent to Channel ${channelId}!`,
-				messageId: result?.key?.id
-			});
+			try {
+				const result = await client.relayMessage(channelJid, { text: message }, { messageId: msgId });
+				console.log(`[Newsletter] relayMessage result:`, result);
+				
+				await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+				return res.send({ 
+					status: 200, 
+					message: `SUCCESS! Message sent to Channel!`,
+					messageId: msgId
+				});
+			} catch (relayError) {
+				console.log(`[Newsletter] relayMessage failed:`, relayError.message);
+				
+				if (typeof client.sendNode === 'function') {
+					console.log(`[Newsletter] Trying sendNode...`);
+					
+					const stanza = {
+						tag: 'message',
+						attrs: {
+							to: channelJid,
+							type: 'text',
+							id: msgId
+						},
+						content: [
+							{
+								tag: 'plaintext',
+								attrs: {},
+								content: Buffer.from(message, 'utf-8')
+							}
+						]
+					};
+					
+					await client.sendNode(stanza);
+					console.log(`[Newsletter] sendNode sent`);
+					
+					await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+					return res.send({ 
+						status: 200, 
+						message: `Message sent via sendNode to Channel!`,
+						messageId: msgId
+					});
+				}
+				
+				throw relayError;
+			}
 		} catch (error) {
 			console.log('[Newsletter] Error:', error);
 			return res.send({ 
 				status: 500, 
 				message: `Failed to send to channel: ${error.message}`,
-				tip: "Pastikan Anda adalah ADMIN channel tersebut. Jika bukan admin, tidak bisa kirim pesan."
+				tip: "Pastikan: 1) Anda ADMIN channel, 2) Channel ID benar, 3) Session aktif"
 			});
 		}
 	}
