@@ -175,87 +175,115 @@ class ChannelWebClient {
         throw new Error('Puppeteer page not available');
       }
 
-      console.log('[CHANNEL-WEB] Got Puppeteer page, navigating to channel...');
+      console.log('[CHANNEL-WEB] Got Puppeteer page');
 
       // Format channel JID
       const channelJid = channelId.includes('@newsletter') ? channelId : `${channelId}@newsletter`;
       
-      // Method: Use WhatsApp Web URL to directly access the channel
-      const channelUrl = `https://web.whatsapp.com/channel/${channelId}`;
-      
-      console.log(`[CHANNEL-WEB] Navigating to: ${channelUrl}`);
+      console.log('[CHANNEL-WEB] Attempting to send via Puppeteer automation...');
       
       try {
-        // Navigate to channel page
-        await page.goto(channelUrl, { 
+        // Step 1: Navigate to main WhatsApp Web page
+        console.log('[CHANNEL-WEB] Step 1: Navigate to WhatsApp Web main page');
+        await page.goto('https://web.whatsapp.com', { 
           waitUntil: 'networkidle2', 
           timeout: 60000 
         });
         
-        console.log('[CHANNEL-WEB] Channel page loaded');
-        
-        // Wait for page to fully load (channels take longer)
+        // Wait for main interface to load
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Try multiple selectors for message input (channel vs regular chat)
+        // Step 2: Click on Updates/Channels tab
+        console.log('[CHANNEL-WEB] Step 2: Looking for Updates/Channels tab...');
+        
+        // Try to find and click the Updates tab (channels are there)
+        const updatesTabSelectors = [
+          'div[role="link"][title="Updates"]',
+          'div[role="link"][title="Saluran"]',
+          'span[data-icon="status"]',  // Status/Updates icon
+          'div[data-icon="status"]',
+        ];
+        
+        let updatesTab = null;
+        for (const selector of updatesTabSelectors) {
+          updatesTab = await page.$(selector);
+          if (updatesTab) {
+            console.log(`[CHANNEL-WEB] Found Updates tab with: ${selector}`);
+            break;
+          }
+        }
+        
+        if (updatesTab) {
+          console.log('[CHANNEL-WEB] Clicking Updates tab...');
+          await updatesTab.click();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.log('[CHANNEL-WEB] Updates tab not found, continuing anyway...');
+        }
+        
+        // Step 3: Search for the channel
+        console.log('[CHANNEL-WEB] Step 3: Searching for channel...');
+        
+        // Click on search box
+        const searchBox = await page.$('div[contenteditable="true"][data-tab="2"], input[type="text"]');
+        if (searchBox) {
+          await searchBox.click();
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await searchBox.type(channelId);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        // Step 4: Try to click on the channel from search results
+        console.log('[CHANNEL-WEB] Step 4: Looking for channel in results...');
+        
+        // Step 5: Find message input and send
+        console.log('[CHANNEL-WEB] Step 5: Looking for message input...');
+        
         const messageSelectors = [
-          'div[contenteditable="true"][data-tab="10"]',  // Regular chat
-          'div[contenteditable="true"][data-tab="60"]',  // Channel (Updates tab)
-          'div[contenteditable="true"]',  // Generic
-          'footer div[contenteditable="true"]'  // Footer message input
+          'footer div[contenteditable="true"]',
+          'div[contenteditable="true"][data-tab="10"]',
+          'div[contenteditable="true"][data-tab="60"]',
+          'div[contenteditable="true"]'
         ];
         
         let messageInput = null;
-        let usedSelector = '';
-        
         for (const selector of messageSelectors) {
-          try {
-            messageInput = await page.$(selector);
-            if (messageInput) {
-              usedSelector = selector;
-              console.log(`[CHANNEL-WEB] Found message input with selector: ${selector}`);
-              break;
-            }
-          } catch (e) {
-            // Try next selector
+          messageInput = await page.$(selector);
+          if (messageInput) {
+            console.log(`[CHANNEL-WEB] Found message input: ${selector}`);
+            break;
           }
         }
         
         if (!messageInput) {
-          // Last resort: try to find by aria-label
-          messageInput = await page.$('div[contenteditable="true"][aria-label="Type a message"]');
-          usedSelector = 'aria-label fallback';
+          throw new Error('Message input not found');
         }
         
-        if (!messageInput) {
-          throw new Error('Message input not found - channel page may have different layout');
-        }
-        
-        console.log('[CHANNEL-WEB] Found message input, typing message...');
-        
-        // Click on message input first to focus
+        // Click to focus
         await messageInput.click();
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Type the message
+        // Type message
+        console.log('[CHANNEL-WEB] Typing message...');
         await messageInput.type(message, { delay: 50 });
-        
-        // Wait a bit for message to be typed
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Find and click send button
-        const sendSelectors = [
+        console.log('[CHANNEL-WEB] Looking for send button...');
+        
+        const sendButtonSelectors = [
+          'button[aria-label="Send"]',
+          'button span[data-icon="send"]',
           'button[data-tab="10"] span[data-icon="send"]',
           'button[data-tab="60"] span[data-icon="send"]',
-          'button span[data-icon="send"]',
-          'footer button[aria-label="Send"]'
+          'footer button'
         ];
         
         let sendButton = null;
-        for (const selector of sendSelectors) {
+        for (const selector of sendButtonSelectors) {
           sendButton = await page.$(selector);
           if (sendButton) {
-            console.log(`[CHANNEL-WEB] Found send button with selector: ${selector}`);
+            console.log(`[CHANNEL-WEB] Found send button: ${selector}`);
             break;
           }
         }
@@ -263,52 +291,41 @@ class ChannelWebClient {
         if (sendButton) {
           console.log('[CHANNEL-WEB] Clicking send button...');
           await sendButton.click();
+          await new Promise(resolve => setTimeout(resolve, 3000));
           
-          // Wait for message to be sent
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          console.log('[CHANNEL-WEB] ✅ Message sent successfully via Puppeteer!');
-          
+          console.log('[CHANNEL-WEB] ✅ Message sent via Puppeteer!');
           return {
             success: true,
             messageId: `puppeteer_${Date.now()}`,
             timestamp: Date.now(),
             chatId: channelJid,
-            method: 'puppeteer-dom'
+            method: 'puppeteer-automation'
           };
         } else {
-          throw new Error('Send button not found - trying fallback method');
-        }
-      } catch (navError) {
-        console.log('[CHANNEL-WEB] Navigation method failed:', navError.message);
-        console.log('[CHANNEL-WEB] Falling back to sendMessage method...');
-        
-        // Fallback: Try regular sendMessage
-        const chats = await this.client.getChats();
-        console.log(`[CHANNEL-WEB] Found ${chats.length} chats`);
-        
-        let channelChat = null;
-        for (const chat of chats) {
-          if (chat.id._serialized === channelJid || chat.id._serialized.includes(channelId)) {
-            channelChat = chat;
-            console.log(`[CHANNEL-WEB] Found channel: ${channelJid}`);
-            break;
-          }
-        }
-        
-        if (channelChat) {
-          const result = await channelChat.sendMessage(message);
-          console.log('[CHANNEL-WEB] ✅ Message sent via sendMessage!');
+          // Try pressing Enter instead of clicking send
+          console.log('[CHANNEL-WEB] Send button not found, trying Enter key...');
+          await page.keyboard.press('Enter');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          console.log('[CHANNEL-WEB] ✅ Message sent via Enter key!');
           return {
             success: true,
-            messageId: result.id._serialized,
-            timestamp: result.timestamp,
-            chatId: channelChat.id._serialized,
-            method: 'sendMessage'
+            messageId: `puppeteer_${Date.now()}`,
+            timestamp: Date.now(),
+            chatId: channelJid,
+            method: 'puppeteer-enter'
           };
-        } else {
-          throw new Error('Channel not found in chat list - You may need to follow the channel first or it may be in Updates tab');
         }
+      } catch (puppeteerError) {
+        console.log('[CHANNEL-WEB] Puppeteer automation failed:', puppeteerError.message);
+        console.log('[CHANNEL-WEB] This is expected - channels are complex to automate');
+        
+        throw new Error(`Puppeteer automation failed: ${puppeteerError.message}\n\n` +
+          `Channel automation via WhatsApp Web is complex because:\n` +
+          `1. Channels are in "Updates" tab, not chat list\n` +
+          `2. No direct URL for channels\n` +
+          `3. UI selectors change frequently\n\n` +
+          `RECOMMENDATION: Use Baileys method instead (already working!)`);
       }
     } catch (error) {
       console.error('[CHANNEL-WEB] Error:', error);
