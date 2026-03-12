@@ -520,7 +520,7 @@ async function alertSendContact() {
         cancelButtonColor: '#64748b',
         confirmButtonText: 'Kirim',
         cancelButtonText: 'Batal',
-        preConfirm: () => ({ sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, contact: document.getElementById('swal-contact').value, contactName: document.getElementById('swal-name').value })
+        preConfirm: () => ({ sessions: document.getElementById('swal-session').value, target: document.getElementById('swal-target').value, contact: { name: document.getElementById('swal-name').value, number: document.getElementById('swal-contact').value } })
     });
 
     if (formValues) {
