@@ -258,7 +258,7 @@
     });
 
     // Channel method toggle
-    let selectedChannelMethod = 'whatsapp-web'; // Default
+    let selectedChannelMethod = 'baileys'; // Default to Baileys (more reliable)
 
     function toggleChannelMethod(method) {
         selectedChannelMethod = method;
@@ -270,12 +270,12 @@
             // WhatsApp-web.js active
             webBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
             baileysBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
-            document.getElementById('channel-method-status').textContent = 'WhatsApp-web.js (aktif) - Lebih reliable untuk channel';
+            document.getElementById('channel-method-status').textContent = 'WhatsApp-web.js (aktif) - Experimental';
         } else {
             // Baileys active
             baileysBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
             webBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
-            document.getElementById('channel-method-status').textContent = 'Baileys (aktif) - Metode lama';
+            document.getElementById('channel-method-status').textContent = 'Baileys (aktif) - Recommended & Working';
         }
         
         console.log('[DEBUG] Method changed to:', method);
