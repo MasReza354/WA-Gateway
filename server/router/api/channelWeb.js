@@ -155,162 +155,113 @@ class ChannelWebClient {
   }
 
   async sendToChannel(channelId, message) {
-    const maxRetries = 2;
-    let lastError = null;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (!this.client) {
+        throw new Error('Client not initialized - Please restart and scan QR');
+      }
+
+      console.log(`\n[CHANNEL-WEB] ========== SENDING TO CHANNEL ==========`);
+      console.log(`[CHANNEL-WEB] Target Channel ID: ${channelId}`);
+      console.log(`[CHANNEL-WEB] Message: ${message}`);
+      
+      // Wait for client to be ready
+      await this.waitForReady(180000);
+      console.log('[CHANNEL-WEB] Client ready!');
+
+      // Get the underlying Puppeteer page
+      const page = this.client.pupPage;
+      
+      if (!page) {
+        throw new Error('Puppeteer page not available');
+      }
+
+      console.log('[CHANNEL-WEB] Got Puppeteer page, navigating to channel...');
+
+      // Format channel JID
+      const channelJid = channelId.includes('@newsletter') ? channelId : `${channelId}@newsletter`;
+      
+      // Method: Use WhatsApp Web URL to directly access the channel
+      const channelUrl = `https://web.whatsapp.com/channel/${channelId}`;
+      
+      console.log(`[CHANNEL-WEB] Navigating to: ${channelUrl}`);
+      
       try {
-        if (!this.client) {
-          throw new Error('Client not initialized - Please restart and scan QR');
-        }
-
-        console.log(`\n[CHANNEL-WEB] ========== ATTEMPT ${attempt}/${maxRetries} ==========`);
-        console.log(`[CHANNEL-WEB] Waiting for client to be ready...`);
-        await this.waitForReady(180000);
-        console.log('[CHANNEL-WEB] Client ready!');
-        console.log('[CHANNEL-WEB] User:', this.client.info?.pushname || this.client.info?.wid);
-
-        // Wait a bit for WhatsApp Web to fully load
-        console.log('[CHANNEL-WEB] Waiting 3 seconds for WhatsApp Web to stabilize...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // Find the channel chat with multiple detection methods
-        console.log('[CHANNEL-WEB] Fetching all chats...');
-        const startTime = Date.now();
-        
-        const chats = await this.client.getChats();
-        const fetchTime = (Date.now() - startTime) / 1000;
-        console.log(`[CHANNEL-WEB] Fetched ${chats.length} total chats in ${fetchTime}s`);
-        
-        // Method 1: Filter by isNewsletter property
-        const newsletterChats = chats.filter(chat => chat.isNewsletter);
-        console.log(`[CHANNEL-WEB] Method 1 - Found ${newsletterChats.length} chats with isNewsletter=true`);
-        
-        // Method 2: Filter by chat ID server (newsletter server)
-        const serverChats = chats.filter(chat => chat.id?.server === 'newsletter');
-        console.log(`[CHANNEL-WEB] Method 2 - Found ${serverChats.length} chats with server='newsletter'`);
-        
-        // Method 3: Filter by chat ID containing @newsletter
-        const jidChats = chats.filter(chat => chat.id?._serialized?.includes('@newsletter'));
-        console.log(`[CHANNEL-WEB] Method 3 - Found ${jidChats.length} chats with @newsletter in ID`);
-        
-        // Method 4: Search by channel ID (exact match or partial)
-        const searchChats = chats.filter(chat => {
-          const chatId = chat.id?._serialized || '';
-          const chatName = chat.name || '';
-          return chatId.includes(channelId) || chatName.includes(channelId);
-        });
-        console.log(`[CHANNEL-WEB] Method 4 - Found ${searchChats.length} chats matching channel ID "${channelId}"`);
-        
-        // Combine all methods
-        const allChannelChats = new Map();
-        
-        [...newsletterChats, ...serverChats, ...jidChats, ...searchChats].forEach(chat => {
-          allChannelChats.set(chat.id._serialized, chat);
+        // Navigate to channel page
+        await page.goto(channelUrl, { 
+          waitUntil: 'networkidle2', 
+          timeout: 60000 
         });
         
-        console.log(`\n[CHANNEL-WEB] ========== ALL DETECTED CHANNELS ==========`);
-        console.log(`[CHANNEL-WEB] Total unique channels found: ${allChannelChats.size}`);
+        console.log('[CHANNEL-WEB] Channel page loaded');
         
-        if (allChannelChats.size > 0) {
-          let i = 0;
-          allChannelChats.forEach((chat, jid) => {
-            i++;
-            if (i <= 20) { // Show first 20 channels
-              console.log(`  ${i}. Name: "${chat.name}"`);
-              console.log(`     ID: ${jid}`);
-              console.log(`     isNewsletter: ${chat.isNewsletter}`);
-              console.log(`     server: ${chat.id?.server}`);
-              console.log(`     isGroup: ${chat.isGroup}`);
-              console.log('');
-            }
-          });
-          if (allChannelChats.size > 20) {
-            console.log(`  ... and ${allChannelChats.size - 20} more channels`);
-          }
-        } else {
-          console.log('[CHANNEL-WEB] ⚠️ NO CHANNELS FOUND AT ALL!');
-          console.log('[CHANNEL-WEB] Possible reasons:');
-          console.log('  1. You haven\'t created/followed any channels with this account');
-          console.log('  2. WhatsApp Web hasn\'t synced channels yet (try waiting)');
-          console.log('  3. Channel detection issue with whatsapp-web.js');
-        }
+        // Wait for message input to appear
+        await page.waitForSelector('div[contenteditable="true"][data-tab="10"]', { timeout: 10000 });
         
-        // Find the specific channel
-        let channelChat = null;
+        console.log('[CHANNEL-WEB] Found message input, typing message...');
         
-        // Try exact match first
-        const exactMatchId = channelId.includes('@newsletter') ? channelId : `${channelId}@newsletter`;
-        channelChat = allChannelChats.get(exactMatchId);
+        // Type the message
+        await page.type('div[contenteditable="true"][data-tab="10"]', message);
         
-        if (!channelChat) {
-          // Try partial match
-          for (const [jid, chat] of allChannelChats.entries()) {
-            if (jid.includes(channelId) || chat.name?.includes(channelId)) {
-              channelChat = chat;
-              console.log(`[CHANNEL-WEB] Found partial match: ${jid}`);
-              break;
-            }
-          }
-        }
-
-        if (!channelChat) {
-          // Last resort: check ALL chats for the channel ID
-          for (const chat of chats) {
-            const chatId = chat.id?._serialized || '';
-            if (chatId.includes(channelId)) {
-              channelChat = chat;
-              console.log(`[CHANNEL-WEB] Found in full chat scan: ${chatId}`);
-              break;
-            }
-          }
-        }
-
-        if (!channelChat) {
-          console.log(`\n[CHANNEL-WEB] ========== ERROR ==========`);
-          console.log(`[CHANNEL-WEB] Channel "${channelId}" NOT FOUND!`);
-          console.log(`[CHANNEL-WEB] Your account appears to have NO channels.`);
-          console.log(`\nSolutions:`);
-          console.log(`1. Create a NEW channel from WhatsApp mobile (Updates tab → + → New Channel)`);
-          console.log(`2. Follow the channel from WhatsApp mobile first`);
-          console.log(`3. Wait 1-2 minutes for WhatsApp Web to sync`);
-          console.log(`4. Restart PM2 and try again`);
+        // Wait a bit for message to be typed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Find and click send button
+        const sendButton = await page.$('button[data-tab="10"] span[data-icon="send"]');
+        
+        if (sendButton) {
+          console.log('[CHANNEL-WEB] Clicking send button...');
+          await sendButton.click();
           
-          const errorMsg = `Channel tidak ditemukan!\n\nAkun ini tidak memiliki channel sama sekali.\n\nSolusi:\n1. Buat channel BARU dari WhatsApp mobile\n2. Atau follow channel yang ingin dikirimi pesan\n3. Tunggu 1-2 menit untuk sinkronisasi\n4. Restart PM2 dan coba lagi`;
-          throw new Error(errorMsg);
+          // Wait for message to be sent
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          console.log('[CHANNEL-WEB] ✅ Message sent successfully via Puppeteer!');
+          
+          return {
+            success: true,
+            messageId: `puppeteer_${Date.now()}`,
+            timestamp: Date.now(),
+            chatId: channelJid,
+            method: 'puppeteer-dom'
+          };
+        } else {
+          throw new Error('Send button not found');
         }
-
-        // Send message to channel
-        console.log(`\n[CHANNEL-WEB] ========== SENDING MESSAGE ==========`);
-        console.log(`[CHANNEL-WEB] Target: ${channelChat.id._serialized}`);
-        console.log(`[CHANNEL-WEB] Channel Name: ${channelChat.name}`);
-        console.log(`[CHANNEL-WEB] Message: ${message}`);
+      } catch (navError) {
+        console.log('[CHANNEL-WEB] Navigation method failed:', navError.message);
+        console.log('[CHANNEL-WEB] Falling back to sendMessage method...');
         
-        const result = await channelChat.sendMessage(message);
-        console.log('[CHANNEL-WEB] ✅ Message sent successfully!');
-        console.log('[CHANNEL-WEB] Message ID:', result.id._serialized);
-        console.log(`[CHANNEL-WEB] ========== SUCCESS ==========\n`);
+        // Fallback: Try regular sendMessage
+        const chats = await this.client.getChats();
+        console.log(`[CHANNEL-WEB] Found ${chats.length} chats`);
         
-        return {
-          success: true,
-          messageId: result.id._serialized,
-          timestamp: result.timestamp,
-          chatId: channelChat.id._serialized,
-          channelName: channelChat.name
-        };
-      } catch (error) {
-        lastError = error;
-        console.error(`[CHANNEL-WEB] Attempt ${attempt} failed:`, error.message);
+        let channelChat = null;
+        for (const chat of chats) {
+          if (chat.id._serialized === channelJid || chat.id._serialized.includes(channelId)) {
+            channelChat = chat;
+            console.log(`[CHANNEL-WEB] Found channel: ${channelJid}`);
+            break;
+          }
+        }
         
-        if (attempt < maxRetries) {
-          console.log(`[CHANNEL-WEB] Retrying in 5 seconds...`);
-          await new Promise(resolve => setTimeout(resolve, 5000));
+        if (channelChat) {
+          const result = await channelChat.sendMessage(message);
+          console.log('[CHANNEL-WEB] ✅ Message sent via sendMessage!');
+          return {
+            success: true,
+            messageId: result.id._serialized,
+            timestamp: result.timestamp,
+            chatId: channelChat.id._serialized,
+            method: 'sendMessage'
+          };
+        } else {
+          throw new Error('Channel not found in chat list - You may need to follow the channel first or it may be in Updates tab');
         }
       }
+    } catch (error) {
+      console.error('[CHANNEL-WEB] Error:', error);
+      throw error;
     }
-    
-    console.error('[CHANNEL-WEB] All attempts failed');
-    throw lastError;
   }
 
   async generateQR(callback) {
