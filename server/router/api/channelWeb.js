@@ -194,19 +194,71 @@ class ChannelWebClient {
         
         console.log('[CHANNEL-WEB] Channel page loaded');
         
-        // Wait for message input to appear
-        await page.waitForSelector('div[contenteditable="true"][data-tab="10"]', { timeout: 10000 });
+        // Wait for page to fully load (channels take longer)
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Try multiple selectors for message input (channel vs regular chat)
+        const messageSelectors = [
+          'div[contenteditable="true"][data-tab="10"]',  // Regular chat
+          'div[contenteditable="true"][data-tab="60"]',  // Channel (Updates tab)
+          'div[contenteditable="true"]',  // Generic
+          'footer div[contenteditable="true"]'  // Footer message input
+        ];
+        
+        let messageInput = null;
+        let usedSelector = '';
+        
+        for (const selector of messageSelectors) {
+          try {
+            messageInput = await page.$(selector);
+            if (messageInput) {
+              usedSelector = selector;
+              console.log(`[CHANNEL-WEB] Found message input with selector: ${selector}`);
+              break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+        
+        if (!messageInput) {
+          // Last resort: try to find by aria-label
+          messageInput = await page.$('div[contenteditable="true"][aria-label="Type a message"]');
+          usedSelector = 'aria-label fallback';
+        }
+        
+        if (!messageInput) {
+          throw new Error('Message input not found - channel page may have different layout');
+        }
         
         console.log('[CHANNEL-WEB] Found message input, typing message...');
         
+        // Click on message input first to focus
+        await messageInput.click();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Type the message
-        await page.type('div[contenteditable="true"][data-tab="10"]', message);
+        await messageInput.type(message, { delay: 50 });
         
         // Wait a bit for message to be typed
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Find and click send button
-        const sendButton = await page.$('button[data-tab="10"] span[data-icon="send"]');
+        const sendSelectors = [
+          'button[data-tab="10"] span[data-icon="send"]',
+          'button[data-tab="60"] span[data-icon="send"]',
+          'button span[data-icon="send"]',
+          'footer button[aria-label="Send"]'
+        ];
+        
+        let sendButton = null;
+        for (const selector of sendSelectors) {
+          sendButton = await page.$(selector);
+          if (sendButton) {
+            console.log(`[CHANNEL-WEB] Found send button with selector: ${selector}`);
+            break;
+          }
+        }
         
         if (sendButton) {
           console.log('[CHANNEL-WEB] Clicking send button...');
@@ -225,7 +277,7 @@ class ChannelWebClient {
             method: 'puppeteer-dom'
           };
         } else {
-          throw new Error('Send button not found');
+          throw new Error('Send button not found - trying fallback method');
         }
       } catch (navError) {
         console.log('[CHANNEL-WEB] Navigation method failed:', navError.message);
