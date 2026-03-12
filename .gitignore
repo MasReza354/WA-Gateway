@@ -3,9 +3,6 @@ session/*/*.json
 session/store/*.json
 public/log/*.txt
 
-# Environment variables
-.env
-
 # Logs
 logs
 *.log
