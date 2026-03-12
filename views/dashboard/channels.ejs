@@ -179,13 +179,26 @@ async function addChannel() {
                 const res = await fetch('/api/session');
                 const data = await res.json();
                 const select = document.getElementById('swal-session');
-                if (data.data && data.data.length > 0) {
-                    select.innerHTML = data.data.map(s => 
-                        `<option value="${s.session_name}">${s.session_name} (${s.status})</option>`
-                    ).join('');
+                
+                console.log('Sessions API response:', data);
+                
+                // Fix: Check both data.sessions and data.data for compatibility
+                const sessions = data.sessions || data.data || [];
+                
+                if (sessions && sessions.length > 0) {
+                    select.innerHTML = '<option value="">Pilih session...</option>' + 
+                        sessions.map(s => 
+                            `<option value="${s.session_name}">${s.session_name} - ${s.status || 'Connected'}</option>`
+                        ).join('');
+                    console.log(`Loaded ${sessions.length} sessions`);
+                } else {
+                    select.innerHTML = '<option value="">Tidak ada session aktif</option>';
+                    console.warn('No sessions found');
                 }
             } catch (e) {
                 console.error('Failed to load sessions:', e);
+                const select = document.getElementById('swal-session');
+                select.innerHTML = '<option value="">Error loading sessions</option>';
             }
         },
         preConfirm: () => ({
