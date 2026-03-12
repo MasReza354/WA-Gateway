@@ -126,11 +126,6 @@ class ControllerApi extends ConnectionSession {
         return res.send({ status: 400, message: "Input Session, Channel ID, and Message!" });
       }
       sessions = sessions.includes("(") ? sessions.split(" (")[0] : sessions;
-      
-      const modeCheck = await this.checkSessionMode(req, res, sessions, true);
-      if (!modeCheck.valid) {
-        return res.send({ status: 403, message: modeCheck.message });
-      }
 
       if (!wahaClient.isConfigured()) {
         return res.send({ 
