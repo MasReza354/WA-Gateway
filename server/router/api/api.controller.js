@@ -7,31 +7,13 @@ import ConnectionSession from "../../session/Session.js";
 import { ButtonResponse, ListResponse } from "../../database/db/messageRespon.db.js";
 import HistoryMessage from "../../database/db/history.db.js";
 import SessionDatabase from "../../database/db/session.db.js";
-import { proto, encodeNewsletterMessage, isJidNewsletter } from "@whiskeysockets/baileys";
-import ChannelWebClient from "./channelWeb.js";  // Add ChannelWebClient import
+import wahaClient from "./wahaClient.js";
 
 class ControllerApi extends ConnectionSession {
   constructor() {
     super();
     this.history = new HistoryMessage();
     this.sessionDb = new SessionDatabase();
-    this.channelWebClients = new Map(); // Store channel web clients by session
-  }
-
-  async getOrCreateChannelWebClient(sessionName) {
-    if (!this.channelWebClients.has(sessionName)) {
-      console.log('[Newsletter] Creating new WhatsApp-web.js client for session:', sessionName);
-      const client = new ChannelWebClient(`channel_${sessionName}`);
-      this.channelWebClients.set(sessionName, client);
-      
-      // Initialize in background (don't wait)
-      client.initialize().catch(err => {
-        console.error('[Newsletter] WhatsApp-web.js init error:', err);
-      });
-      
-      console.log('[Newsletter] WhatsApp-web.js client created - waiting for QR scan if needed');
-    }
-    return this.channelWebClients.get(sessionName);
   }
 
   async checkSessionMode(req, res, sessions, isChannel = false) {
@@ -139,7 +121,7 @@ class ControllerApi extends ConnectionSession {
 
   async sendNewsletter(req, res) {
     try {
-      let { sessions, channelId, message, method } = req.body;
+      let { sessions, channelId, message } = req.body;
       if (!sessions || !channelId || !message) {
         return res.send({ status: 400, message: "Input Session, Channel ID, and Message!" });
       }
@@ -149,93 +131,38 @@ class ControllerApi extends ConnectionSession {
       if (!modeCheck.valid) {
         return res.send({ status: 403, message: modeCheck.message });
       }
+
+      if (!wahaClient.isConfigured()) {
+        return res.send({ 
+          status: 500, 
+          message: "WAHA tidak terkonfigurasi.\n\nPastikan WAHA_URL dan WAHA_API_KEY sudah diset di .env" 
+        });
+      }
+
+      console.log('[Newsletter] Sending via WAHA API...');
       
-      // Determine which method to use
-      const preferredMethod = method || 'whatsapp-web'; // Default to whatsapp-web
-      
-      if (preferredMethod === 'whatsapp-web') {
-        console.log('[Newsletter] Using WhatsApp-web.js method...');
+      try {
+        const result = await wahaClient.sendToChannel(channelId, message);
         
-        try {
-          const channelWebClient = await this.getOrCreateChannelWebClient(sessions);
-          
-          const result = await channelWebClient.sendToChannel(channelId, message);
-          
-          await this.history.pushNewMessage(sessions, "NEWSLETTER", `${channelId}@newsletter`, message);
-          return res.send({ 
-            status: 200, 
-            message: `Pesan terkirim via WhatsApp-web.js!\n\nMessage ID: ${result.messageId}\nChat ID: ${result.chatId}\n\n⚠️ Jika pesan tidak muncul di channel, pastikan Anda sudah scan QR Code sekali untuk WhatsApp-web.js`,
-            messageId: result.messageId,
-            method: 'whatsapp-web.js'
-          });
-        } catch (webError) {
-          console.log(`[Newsletter] WhatsApp-web.js failed:`, webError.message);
-          
-          // Fallback to Baileys
-          console.log(`[Newsletter] Falling back to Baileys...`);
-          const baileysClient = this.getClient();
-          if (baileysClient && baileysClient.isStop !== true) {
-            try {
-              let channelJid = channelId;
-              if (!channelId.includes("@newsletter")) {
-                channelJid = `${channelId}@newsletter`;
-              }
-              
-              const result = await baileysClient.sendMessage(channelJid, { text: message });
-              if (result?.key?.id) {
-                await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-                return res.send({ 
-                  status: 200, 
-                  message: `Pesan terkirim via Baileys!\n\nMessage ID: ${result.key.id}\n\nCatatan: Pesan mungkin tidak langsung muncul di channel.`,
-                  messageId: result.key.id,
-                  method: 'baileys'
-                });
-              }
-            } catch (baileysError) {
-              console.log(`[Newsletter] Baileys fallback failed:`, baileysError.message);
-            }
-          }
-          
-          return res.send({ 
-            status: 500, 
-            message: `Gagal mengirim via WhatsApp-web.js\n\nError: ${webError.message}\n\n💡 Solusi:\n- Pastikan Anda sudah scan QR Code untuk WhatsApp-web.js\n- Coba metode Baileys di UI toggle`
-          });
-        }
-      } else {
-        // Use Baileys method
-        console.log('[Newsletter] Using Baileys method...');
-        
-        const baileysClient = this.getClient();
-        if (!baileysClient || baileysClient.isStop === true) {
-          return res.send({ 
-            status: 500, 
-            message: `Baileys client tidak tersedia\n\n💡 Solusi:\n- Pastikan session aktif\n- Coba metode WhatsApp-web.js di UI toggle`
-          });
+        let channelJid = channelId;
+        if (!channelId.includes("@newsletter")) {
+          channelJid = `${channelId}@newsletter`;
         }
         
-        try {
-          let channelJid = channelId;
-          if (!channelId.includes("@newsletter")) {
-            channelJid = `${channelId}@newsletter`;
-          }
-          
-          const result = await baileysClient.sendMessage(channelJid, { text: message });
-          if (result?.key?.id) {
-            await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
-            return res.send({ 
-              status: 200, 
-              message: `Pesan terkirim via Baileys!\n\nMessage ID: ${result.key.id}\n\nCatatan: Pesan mungkin tidak langsung muncul di channel.`,
-              messageId: result.key.id,
-              method: 'baileys'
-            });
-          }
-        } catch (baileysError) {
-          console.log(`[Newsletter] Baileys failed:`, baileysError.message);
-          return res.send({ 
-            status: 500, 
-            message: `Gagal mengirim via Baileys\n\nError: ${baileysError.message}\n\n💡 Solusi:\n- Coba metode WhatsApp-web.js di UI toggle`
-          });
-        }
+        await this.history.pushNewMessage(sessions, "NEWSLETTER", channelJid, message);
+        
+        return res.send({ 
+          status: 200, 
+          message: `Pesan terkirim ke Channel via WAHA!\n\nChannel: ${channelJid}`,
+          messageId: result.messageId,
+          method: 'waha'
+        });
+      } catch (wahaError) {
+        console.log('[Newsletter] WAHA error:', wahaError.message);
+        return res.send({ 
+          status: 500, 
+          message: `Gagal mengirim via WAHA\n\nError: ${wahaError.message}\n\nPastikan:\n1. WAHA session aktif\n2. Channel ID valid\n3. Anda admin channel tersebut`
+        });
       }
     } catch (error) {
       console.log('[Newsletter] ERROR:', error);

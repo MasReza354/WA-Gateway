@@ -13,40 +13,33 @@
 
     <!-- Message Type Cards -->
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Channel Method Toggle - PROMINENT POSITION -->
-        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border-2 border-purple-300 overflow-hidden hover:shadow-lg transition-shadow md:col-span-2 lg:col-span-3">
-            <div class="p-5 border-b border-purple-200">
+        <!-- Channel Method Info - WAHA -->
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-300 overflow-hidden hover:shadow-lg transition-shadow md:col-span-2 lg:col-span-3">
+            <div class="p-5 border-b border-green-200">
                 <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-lg bg-purple-200">
-                        <span class="material-symbols-outlined text-purple-700">settings</span>
+                    <div class="p-2 rounded-lg bg-green-200">
+                        <span class="material-symbols-outlined text-green-700">cloud_done</span>
                     </div>
                     <div>
-                        <h3 class="font-bold text-lg text-purple-900">⚙️ Metode Pengiriman Channel</h3>
-                        <p class="text-xs text-purple-700">Pilih metode untuk mengirim pesan ke WhatsApp Channel</p>
+                        <h3 class="font-bold text-lg text-green-900">WAHA API - Channel Aktif</h3>
+                        <p class="text-xs text-green-700">Menggunakan WAHA (WhatsApp HTTP API) untuk Channel</p>
                     </div>
                 </div>
             </div>
             <div class="p-5">
-                <div class="grid grid-cols-2 gap-3 mb-4">
-                    <button onclick="toggleChannelMethod('whatsapp-web')" id="method-whatsapp-web" class="py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md">
-                        🚀 WhatsApp-web.js
-                        <div class="text-xs font-normal mt-1 opacity-90">Perlu scan QR sekali</div>
-                    </button>
-                    <button onclick="toggleChannelMethod('baileys')" id="method-baileys" class="py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md">
-                        ⚡ Baileys
-                        <div class="text-xs font-normal mt-1 opacity-90">Metode lama</div>
-                    </button>
-                </div>
-                <div class="bg-white rounded-lg p-3 border border-purple-200">
+                <div class="bg-white rounded-lg p-4 border border-green-200">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-xs text-purple-700 font-semibold">Status:</div>
-                            <div id="channel-method-status" class="text-sm font-bold text-purple-900">WhatsApp-web.js (aktif)</div>
+                            <div class="text-xs text-green-700 font-semibold">Status:</div>
+                            <div class="text-sm font-bold text-green-900">WAHA API Connected</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xs text-purple-700">Info:</div>
-                            <div class="text-xs text-purple-600">WhatsApp-web.js lebih reliable untuk channel</div>
+                            <div class="text-xs text-green-700">Endpoint:</div>
+                            <div class="text-xs text-green-600 font-mono">/api/sendText</div>
                         </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-green-100">
+                        <p class="text-xs text-green-600">WAHA menggunakan session WhatsApp yang terpisah dari Baileys. Pastikan WAHA session aktif sebelum mengirim ke Channel.</p>
                     </div>
                 </div>
             </div>
@@ -247,7 +240,6 @@
 </div>
 
 <script>
-    // Set brand value for inputs
     document.addEventListener('DOMContentLoaded', () => {
         const observer = new MutationObserver(() => {
             document.querySelectorAll('._brand_input').forEach(el => {
@@ -257,46 +249,26 @@
         observer.observe(document.body, { childList: true, subtree: true });
     });
 
-    // Channel method toggle
-    let selectedChannelMethod = 'baileys'; // Default to Baileys (more reliable)
-
-    function toggleChannelMethod(method) {
-        selectedChannelMethod = method;
-        
-        const webBtn = document.getElementById('method-whatsapp-web');
-        const baileysBtn = document.getElementById('method-baileys');
-        
-        if (method === 'whatsapp-web') {
-            // WhatsApp-web.js active
-            webBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
-            baileysBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
-            document.getElementById('channel-method-status').textContent = 'WhatsApp-web.js (aktif) - Experimental';
-        } else {
-            // Baileys active
-            baileysBtn.className = 'py-3 px-4 bg-purple-600 text-white rounded-lg font-bold text-sm border-2 border-purple-700 hover:bg-purple-700 transition-all shadow-md';
-            webBtn.className = 'py-3 px-4 bg-gray-400 text-white rounded-lg font-bold text-sm border-2 border-gray-500 hover:bg-gray-500 transition-all shadow-md';
-            document.getElementById('channel-method-status').textContent = 'Baileys (aktif) - Recommended & Working';
-        }
-        
-        console.log('[DEBUG] Method changed to:', method);
-    }
-
     async function alertSendNewsletter() {
     const { value: formValues } = await Swal.fire({
         title: '<span class="material-symbols-outlined text-indigo-600 align-middle">broadcast_on_home</span> Kirim ke Saluran',
         html: `
             <div class="text-left space-y-3">
+                <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-xs text-green-700"><strong>WAHA API</strong> - Mengirim via WAHA (WhatsApp HTTP API)</p>
+                    <p class="text-xs text-green-600 mt-1">Pastikan WAHA session aktif sebelum mengirim</p>
+                </div>
                 <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p class="text-xs text-amber-700"><strong>Info:</strong> Anda harus menjadi <strong>ADMIN</strong> channel untuk mengirim pesan. Hanya TEXT yang didukung.</p>
-                    <p class="text-xs text-amber-700 mt-1"><strong>Metode:</strong> ${selectedChannelMethod === 'whatsapp-web' ? 'WhatsApp-web.js' : 'Baileys'}</p>
                 </div>
                 <div>
-                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session (untuk log)</label>
                     <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
                         <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
                         <option value="<%= el.session_name %>"><%= el.session_name %> (+<%= el.session_number %>)</option>
                         <% }); } %>
                     </select>
+                    <p class="text-xs text-slate-400 mt-1">Session ini untuk logging, WAHA menggunakan session sendiri</p>
                 </div>
                 <div>
                     <label class="text-sm font-medium text-slate-700 mb-1 block">Channel ID</label>
@@ -306,9 +278,6 @@
                 <div>
                     <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan</label>
                     <textarea id="swal-message" rows="3" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Tulis pesan untuk channel..."></textarea>
-                </div>
-                <div class="text-xs text-slate-500">
-                    <strong>Metode saat ini:</strong> ${selectedChannelMethod === 'whatsapp-web' ? 'WhatsApp-web.js (membutuhkan QR scan sekali)' : 'Baileys (metode lama)'}
                 </div>
             </div>
         `,
@@ -334,15 +303,14 @@
             return { 
                 sessions: session, 
                 channelId, 
-                message,
-                method: selectedChannelMethod
+                message
             };
         }
     });
 
     if (formValues) {
         Swal.fire({
-            title: 'Mengirim...',
+            title: 'Mengirim via WAHA...',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -712,95 +680,4 @@ async function alertSendBulk() {
     }
 }
 
-async function alertSendNewsletter() {
-    const { value: formValues } = await Swal.fire({
-        title: '<span class="material-symbols-outlined text-indigo-600 align-middle">broadcast_on_home</span> Kirim ke Saluran',
-        html: `
-            <div class="text-left space-y-3">
-                <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p class="text-xs text-amber-700"><strong>Info:</strong> Anda harus menjadi <strong>ADMIN</strong> channel untuk mengirim pesan. Hanya TEXT yang didukung.</p>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-slate-700 mb-1 block">Session</label>
-                    <select id="swal-session" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm">
-                        <% if (Array.isArray(session) && session.length) { session.forEach((el) => { %>
-                        <option value="<%= el.session_name %>"><%= el.session_name %> (+<%= el.session_number %>)</option>
-                        <% }); } %>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-slate-700 mb-1 block">Channel ID</label>
-                    <input id="swal-channel" type="text" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="120363285413560907">
-                    <p class="text-xs text-slate-400 mt-1">Format: 120363xxxx (tanpa @newsletter)</p>
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-slate-700 mb-1 block">Pesan</label>
-                    <textarea id="swal-message" rows="3" class="w-full rounded-lg border border-slate-200 py-2 px-3 text-sm" placeholder="Tulis pesan untuk channel..."></textarea>
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonColor: '#4f46e5',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Kirim ke Saluran',
-        cancelButtonText: 'Batal',
-        preConfirm: () => {
-            const session = document.getElementById('swal-session').value;
-            const channelId = document.getElementById('swal-channel').value;
-            const message = document.getElementById('swal-message').value;
-            
-            if (!channelId) {
-                Swal.showValidationMessage('Channel ID wajib diisi!');
-                return false;
-            }
-            if (!message) {
-                Swal.showValidationMessage('Pesan wajib diisi!');
-                return false;
-            }
-            
-            return { sessions: session, channelId, message };
-        }
-    });
-
-    if (formValues) {
-        Swal.fire({
-            title: 'Mengirim...',
-            allowOutsideClick: false,
-            didOpen: () => { Swal.showLoading(); }
-        });
-        
-        const res = await fetch('/api/sendnewsletter', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formValues)
-        }).then(r => r.json());
-        
-        if (res.status == 200) {
-            Swal.fire('Berhasil!', res.message, 'success');
-        } else {
-            Swal.fire('Gagal', res.message + (res.tip ? '<br><br><small>' + res.tip + '</small>' : ''), 'error');
-        }
-    }
-}
-
-
-
-// Set brand value for inputs
-document.addEventListener('DOMContentLoaded', () => {
-    const observer = new MutationObserver(() => {
-        document.querySelectorAll('._brand_input').forEach(el => {
-            if (!el.value) el.value = window._author ? window._author() : '';
-        });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    // Debug: Log toggle method status
-    console.log('[DEBUG] Toggle method loaded, default:', selectedChannelMethod);
-    Swal.fire({
-        title: 'Toggle Method Tersedia!',
-        text: 'Fitur toggle method WhatsApp-web.js vs Baileys sudah ada di halaman ini. Scroll ke bawah untuk melihat opsi "Metode Pengiriman".',
-        icon: 'info',
-        confirmButtonText: 'OK'
-    });
-});
-</script>
+function useTemplate(text) {
