@@ -39,7 +39,7 @@ cp .env.example .env
 
 Edit file `.env`:
 ```env
-PORT=8080
+PORT=8081
 SESSION_NAME=session_1
 SESSION_PATH=./session
 LOG_PATH=./public/log
@@ -66,7 +66,7 @@ CREATE DATABASE wa_gateway;
 npm start
 ```
 
-6. Buka browser: `http://localhost:8080`
+6. Buka browser: `http://localhost:8081`
 
 ## 📱 Cara Pakai
 

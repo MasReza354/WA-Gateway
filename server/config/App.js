@@ -16,7 +16,7 @@ class App {
 		this.app = express();
 		this.plugins();
 		this.route();
-		this.PORT = process.env.PORT || 8080;
+		this.PORT = process.env.PORT || 8081;
 	}
 
 	plugins() {

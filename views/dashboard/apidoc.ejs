@@ -8,7 +8,7 @@
     <!-- Base URL -->
     <div class="bg-wa-green/10 border border-wa-green/20 rounded-xl p-4">
         <p class="text-sm font-medium text-wa-dark mb-2">Base URL</p>
-        <code class="bg-white px-3 py-2 rounded-lg text-sm font-mono text-slate-800 block"><%= process.env.HOST || 'http://localhost:8080' %></code>
+        <code class="bg-white px-3 py-2 rounded-lg text-sm font-mono text-slate-800 block"><%= process.env.HOST || 'http://localhost:8081' %></code>
     </div>
 
     <!-- API Endpoints -->
@@ -179,7 +179,7 @@ $data = [
     'message' => 'Hello from PHP!'
 ];
 
-$ch = curl_init('http://localhost:8080/api/sendtext');
+$ch = curl_init('http://localhost:8081/api/sendtext');
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
